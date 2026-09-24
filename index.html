@@ -1,0 +1,1968 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>FarmRush 3D — Core Controls</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#10170f;font-family:Arial,Segoe UI,sans-serif;color:#fff}
+#game{position:fixed;inset:0}
+#game canvas{display:block;width:100%;height:100%}
+.panel{background:rgba(12,18,13,.78);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(8px);border-radius:14px;box-shadow:0 12px 35px rgba(0,0,0,.22)}
+#hud{position:fixed;inset:0;pointer-events:none;z-index:10}
+#top{position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;gap:10px}
+#stats{display:flex;gap:8px;padding:9px;flex-wrap:wrap}
+.stat{min-width:68px}.stat small{display:block;font-size:9px;color:#b9c2b8;text-transform:uppercase;letter-spacing:.1em}.stat b{font-size:16px}
+#contract{width:390px;padding:11px}
+#contract b{font-size:14px}.sub{font-size:11px;color:#c4cbc2;line-height:1.35}
+#progressWrap{height:8px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden;margin-top:7px}
+#progress{height:100%;width:0;background:#e8c64e}
+#right{position:absolute;right:12px;bottom:12px;display:flex;align-items:flex-end;gap:7px;flex-direction:column}
+.btn{pointer-events:auto;border:1px solid rgba(255,255,255,.14);background:rgba(12,18,13,.83);color:#fff;padding:8px 11px;border-radius:11px;font-weight:800;cursor:pointer}
+.btn.active{background:#e8c64e;color:#17200e;border-color:#e8c64e}
+.gear{min-width:30px;padding:6px 8px}
+#gearPanel{display:flex;gap:4px;align-items:center;flex-wrap:wrap;padding:7px 8px}
+#drivePanel{position:absolute;left:12px;bottom:12px;padding:8px 10px;font-size:11px;color:#c7cec4}
+#drivePanel b{color:#fff}
+#machine{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);width:min(390px,58vw);padding:8px 11px}
+.row{display:flex;justify-content:space-between;gap:10px;font-size:10px;color:#bfc8bd}
+#bar{height:7px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:4px}
+#load{height:100%;width:0;background:#dda94d}
+#toast{position:absolute;top:15%;left:50%;transform:translateX(-50%);padding:9px 14px;border-radius:999px;background:rgba(13,19,12,.95);border:1px solid rgba(255,255,255,.12);font-weight:900;opacity:0;transition:.18s}
+#toast.on{opacity:1}
+#start{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:radial-gradient(circle at 50% 38%,rgba(66,102,49,.86),rgba(2,5,3,.98))}
+#startCard{width:min(680px,92vw);padding:30px;text-align:center}
+#startCard h1{margin:0;font-size:clamp(42px,8vw,78px);line-height:.87;letter-spacing:-.06em}
+#startCard p{color:#c7cec6;line-height:1.55}
+#startButton{margin-top:10px;background:#e8c64e;color:#16200f;border:0;border-radius:14px;padding:13px 20px;font-weight:950;cursor:pointer}
+#diagnostic{display:none;position:fixed;inset:0;z-index:99;place-items:center;background:#050806;padding:25px}
+#diagnostic .panel{max-width:760px;padding:25px}
+#touch{display:none;position:fixed;inset:0;z-index:20;pointer-events:none}
+.touchBtn{position:absolute;width:65px;height:65px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);font-weight:1000;pointer-events:auto;user-select:none;touch-action:none}
+#tl{left:16px;bottom:80px}#tr{left:91px;bottom:80px}#tf{right:91px;bottom:80px}#tb{right:16px;bottom:80px}
+@media(max-width:850px){#touch{display:block}#drivePanel{display:none}#machine{width:76vw}.stat{min-width:65px}.stat b{font-size:14px}#contract{width:54vw}}
+@media(max-width:600px){#top{flex-direction:column}#stats{width:max-content;max-width:100%}#contract{width:100%}.stat{min-width:62px}#machine{left:50%;bottom:10px}}
+
+/* ===== MOBILE UI ONLY: two-hand touch layout ===== */
+@media (max-width:850px){
+  /* Keep the game area open; controls sit in dedicated edge zones. */
+  #touch{display:block;z-index:25}
+  .touchBtn{
+    width:58px;
+    height:58px;
+    border-radius:50%;
+    font-size:25px;
+    background:rgba(18,25,19,.58);
+    border:1px solid rgba(255,255,255,.24);
+    box-shadow:0 5px 16px rgba(0,0,0,.28);
+    backdrop-filter:blur(4px);
+  }
+
+  /* LEFT THUMB: steering only. */
+  #tl{left:20px;right:auto;bottom:16px}
+  #tr{left:88px;right:auto;bottom:16px}
+
+  /* RIGHT THUMB: forward / reverse only. */
+  #tf{right:20px;left:auto;bottom:84px}
+  #tb{right:20px;left:auto;bottom:16px}
+
+  /* Compact action dock above the right-hand driving buttons. */
+  #right{
+    right:8px;
+    bottom:148px;
+    top:auto;
+    width:184px;
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:5px;
+    flex-direction:unset;
+    align-items:stretch;
+  }
+
+  #gearPanel{
+    grid-column:1/-1;
+    width:100%;
+    display:flex;
+    gap:3px;
+    padding:5px;
+    justify-content:center;
+  }
+  #gearPanel .sub{font-size:8px;margin-right:1px}
+  .gear{min-width:25px;width:25px;height:27px;padding:2px 0;font-size:12px}
+
+  /* Icon-only controls on mobile. Desktop labels remain unchanged. */
+  #right>.btn:not(.gearBtn){
+    min-width:0;
+    width:100%;
+    height:40px;
+    min-height:40px;
+    padding:0;
+    border-radius:10px;
+    font-size:0;
+    line-height:1;
+  }
+  #ploughBtn::before{content:'🌾';font-size:19px}
+  #handBtn::before{content:'🛑';font-size:18px}
+  #cameraBtn::before{content:'📷';font-size:18px}
+  #serviceBtn::before{content:'🔧';font-size:18px}
+  #pauseBtn::before{content:'⏸';font-size:18px}
+  #hornBtn::before{content:'📯';font-size:18px}
+  #right>.btn>span{display:none}
+
+  /* Keep the status panel narrow enough not to collide with either thumb. */
+  #machine{
+    width:min(390px,46vw);
+    left:50%;
+    bottom:8px;
+    padding:6px 8px;
+  }
+  #machine .row{font-size:8px;gap:6px}
+  #bar{height:5px;margin-top:3px}
+
+  /* Slightly compact top HUD. */
+  #stats{gap:5px;padding:7px}
+  .stat{min-width:55px}
+  .stat small{font-size:8px}
+  .stat b{font-size:13px}
+  #contract{padding:8px}
+  #contract b{font-size:12px}
+  #contract .sub{font-size:9px}
+  #progressWrap{height:6px}
+}
+
+@media (max-width:850px) and (orientation:portrait){
+  /* Portrait: keep both thumb zones at the bottom corners. */
+  #right{right:8px;bottom:150px;width:170px}
+  #machine{width:calc(100vw - 150px);bottom:10px}
+  #tf{right:18px;bottom:82px}
+  #tb{right:18px;bottom:14px}
+  #tl{left:18px;bottom:14px}
+  #tr{left:86px;bottom:14px}
+}
+
+@media (max-width:600px){
+  #top{flex-direction:column;gap:5px}
+  #stats{width:max-content;max-width:calc(100vw - 16px)}
+  #contract{width:calc(100vw - 16px)}
+  #right{width:170px}
+}
+/* ===== ADDED ONLY: plough/trailer attachment controls ===== */
+#ploughAttachBtn::before{content:'🔗';font-size:18px}
+#trailerAttachBtn::before{content:'🛒';font-size:18px}
+@media(max-width:850px){
+  #ploughAttachBtn::before{content:'🔗';font-size:18px}
+  #trailerAttachBtn::before{content:'🛒';font-size:18px}
+}
+/* ===== END ADDED ONLY: plough/trailer attachment controls ===== */
+
+</style>
+</head>
+<body>
+<div id="game"></div>
+
+<div id="hud">
+  <div id="top">
+    <div id="stats" class="panel">
+      <div class="stat"><small>Speed</small><b id="speed">0 km/h</b></div>
+      <div class="stat"><small>RPM</small><b id="rpm">850</b></div>
+      <div class="stat"><small>Gear</small><b id="gear">N</b></div>
+      <div class="stat"><small>Fuel</small><b id="fuel">100%</b></div>
+      <div class="stat"><small>Damage</small><b id="damage">0%</b></div>
+    </div>
+    <div id="contract" class="panel">
+      <b>FIELD TEST</b>
+      <div class="sub">Plough the field and turn the tractor smoothly.</div>
+      <div id="progressWrap"><div id="progress"></div></div>
+      <div class="sub" style="margin-top:4px">Worked: <span id="worked">0%</span></div>
+    </div>
+  </div>
+
+  <div id="machine" class="panel">
+    <div class="row"><span>STEERING</span><b id="steering">CENTER</b><span>CAMERA <b id="camera">CHASE</b></span></div>
+    <div class="row" style="margin-top:6px"><span id="driveState">IDLE</span><span>TRACTION <b id="traction">100%</b></span><span>PLough <b id="ploughState">UP</b></span></div>
+    <div class="row" style="margin-top:6px"><span>ENGINE LOAD <b id="loadText">0%</b></span><span>POS <b id="pos">0,0</b></span></div>
+    <div id="bar"><div id="load"></div></div>
+  </div>
+
+  <div id="right">
+    <div id="gearPanel" class="panel">
+      <span class="sub">GEAR</span>
+      <button class="btn gear gearBtn" data-gear="-1" type="button">R</button>
+      <button class="btn gear gearBtn" data-gear="0" type="button">N</button>
+      <button class="btn gear gearBtn" data-gear="1" type="button">1</button>
+      <button class="btn gear gearBtn" data-gear="2" type="button">2</button>
+      <button class="btn gear gearBtn" data-gear="3" type="button">3</button>
+      <button class="btn gear gearBtn" data-gear="4" type="button">4</button>
+      <button class="btn gear gearBtn" data-gear="5" type="button">5</button>
+    </div>
+    <button class="btn" id="ploughBtn" type="button">🌾 Plough: <span>UP</span></button>
+    <button class="btn" id="handBtn" type="button">🛑 Handbrake: <span>OFF</span></button>
+    <button class="btn" id="cameraBtn" type="button">📷 Camera: <span>CHASE</span></button>
+    <button class="btn" id="serviceBtn" type="button">🔧 Service</button>
+    <button class="btn" id="pauseBtn" type="button">⏸ Pause</button>
+  </div>
+
+  <div id="drivePanel" class="panel">
+    <b>W</b> forward · <b>S</b> brake · <b>A</b> left · <b>D</b> right ·
+    <b>Q/E</b> gear · <b>R</b> reverse · <b>N</b> neutral · <b>Space</b> plough ·
+    <b>Shift</b> handbrake · <b>X/C</b> camera · <b>T</b> service · <b>Esc</b> pause
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<div id="touch">
+  <div id="tl" class="touchBtn">◀</div><div id="tr" class="touchBtn">▶</div>
+  <div id="tf" class="touchBtn">▲</div><div id="tb" class="touchBtn">▼</div>
+</div>
+
+<div id="start">
+  <div id="startCard" class="panel">
+    <div class="sub">CORE CONTROLS BUILD</div>
+    <h1>FARMRUSH<br>3D</h1>
+    <p>This build intentionally focuses on making the tractor controls work correctly before adding more game features.</p>
+    <button id="startButton" type="button">START TRACTOR</button>
+  </div>
+</div>
+
+<div id="diagnostic">
+  <div class="panel">
+    <h2>FarmRush stopped</h2><p style="color:#b7c2b5;font-size:13px">A game-code error occurred after startup.</p>
+    <pre id="diagnosticText" style="white-space:pre-wrap;line-height:1.45;color:#cbd3c8"></pre>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+
+if(!window.THREE){
+  document.getElementById('diagnostic').style.display='grid';
+  document.getElementById('diagnosticText').textContent='Three.js could not load. Connect to the internet and run the game again.';
+  return;
+}
+const THREE=window.THREE;
+
+// ===== ADDED ONLY: working tractor horn =====
+let hornAudio=null;
+let hornActive=false;
+let hornButton=null;
+
+function initHornSound(){
+ if(hornAudio)return true;
+ const AC=window.AudioContext||window.webkitAudioContext;
+ if(!AC)return false;
+ const ctx=(typeof engineAudio!=='undefined'&&engineAudio?.ctx)?engineAudio.ctx:new AC();
+ const master=ctx.createGain();
+ master.gain.value=.0001;
+
+ const compressor=ctx.createDynamicsCompressor();
+ compressor.threshold.value=-24;
+ compressor.knee.value=16;
+ compressor.ratio.value=5;
+ compressor.attack.value=.003;
+ compressor.release.value=.14;
+ master.connect(compressor);
+ compressor.connect(ctx.destination);
+
+ // Two low electric-horn tones for a fuller agricultural-tractor horn character.
+ const o1=ctx.createOscillator();
+ const o2=ctx.createOscillator();
+ o1.type='sawtooth';
+ o2.type='square';
+ o1.frequency.value=420;
+ o2.frequency.value=500;
+
+ const f1=ctx.createBiquadFilter();
+ const f2=ctx.createBiquadFilter();
+ f1.type='lowpass';f2.type='lowpass';
+ f1.frequency.value=980;f2.frequency.value=1150;
+ f1.Q.value=.7;f2.Q.value=.7;
+
+ const g1=ctx.createGain();
+ const g2=ctx.createGain();
+ g1.gain.value=.19;
+ g2.gain.value=.11;
+
+ o1.connect(f1);f1.connect(g1);g1.connect(master);
+ o2.connect(f2);f2.connect(g2);g2.connect(master);
+
+ // Gentle horn vibration.
+ const lfo=ctx.createOscillator();
+ const lfoGain=ctx.createGain();
+ lfo.type='sine';
+ lfo.frequency.value=6.2;
+ lfoGain.gain.value=3.8;
+ lfo.connect(lfoGain);
+ lfoGain.connect(o1.detune);
+ lfoGain.connect(o2.detune);
+
+ const now=ctx.currentTime;
+ o1.start(now);o2.start(now);lfo.start(now);
+ hornAudio={ctx,master,o1,o2,lfo};
+ return true;
+}
+
+function setHornButton(on){
+ if(!hornButton)return;
+ const label=hornButton.querySelector('span');
+ if(label)label.textContent=on?'ON':'OFF';
+ hornButton.classList.toggle('active',on);
+}
+
+function hornDown(){
+ if(!initHornSound())return;
+ const a=hornAudio,now=a.ctx.currentTime;
+ a.ctx.resume?.();
+ hornActive=true;
+ a.master.gain.cancelScheduledValues(now);
+ a.master.gain.setTargetAtTime(.20,now,.012);
+ setHornButton(true);
+}
+
+function hornUp(){
+ if(!hornAudio)return;
+ const a=hornAudio,now=a.ctx.currentTime;
+ hornActive=false;
+ a.master.gain.cancelScheduledValues(now);
+ a.master.gain.setTargetAtTime(.0001,now,.045);
+ setHornButton(false);
+}
+
+// Visible horn control; existing controls are untouched.
+hornButton=document.createElement('button');
+hornButton.type='button';
+hornButton.className='btn';
+hornButton.id='hornBtn';
+hornButton.innerHTML='📯 Horn: <span>OFF</span>';
+document.getElementById('right')?.appendChild(hornButton);
+hornButton.addEventListener('pointerdown',e=>{e.preventDefault();hornDown();hornButton.setPointerCapture?.(e.pointerId);},{passive:false});
+hornButton.addEventListener('pointerup',e=>{e.preventDefault();hornUp();},{passive:false});
+hornButton.addEventListener('pointercancel',hornUp,{passive:true});
+hornButton.addEventListener('lostpointercapture',hornUp,{passive:true});
+
+// H = horn. Additional listener only.
+window.addEventListener('keydown',e=>{
+ if(e.code==='KeyH'&&!e.repeat){hornDown();e.preventDefault();}
+},{passive:false});
+window.addEventListener('keyup',e=>{
+ if(e.code==='KeyH'){hornUp();e.preventDefault();}
+},{passive:false});
+// ===== END ADDED ONLY: working tractor horn =====
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x91c9e8);
+scene.fog=new THREE.FogExp2(0xa9cda0,.009);
+
+const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.1,700);
+camera.position.set(0,7,-12);
+camera.lookAt(0,1,4);
+
+let renderer;
+try{
+  renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+}catch(e){
+  document.getElementById('diagnostic').style.display='grid';
+  document.getElementById('diagnosticText').textContent='WebGL error: '+(e.stack||e);
+  return;
+}
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+document.getElementById('game').appendChild(renderer.domElement);
+
+const hemi=new THREE.HemisphereLight(0xe1f4ff,0x314b26,1.45);
+scene.add(hemi);
+const sun=new THREE.DirectionalLight(0xffffff,2.15);
+sun.position.set(50,80,25);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
+Object.assign(sun.shadow.camera,{left:-125,right:125,top:125,bottom:-125,near:.5,far:280});
+scene.add(sun);
+
+const M=(c,r=1,m=0)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
+const world=new THREE.Group();scene.add(world);
+const add=(geo,mat,x=0,y=0,z=0,p=world)=>{const o=new THREE.Mesh(geo,mat);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;p.add(o);return o};
+
+const ground=add(new THREE.PlaneGeometry(240,240),M(0x4e833f));
+ground.rotation.x=-Math.PI/2;
+
+function road(x,z,w,d){
+ const r=add(new THREE.PlaneGeometry(w,d),M(0x66533d),x,.01,z);r.rotation.x=-Math.PI/2;
+}
+road(0,0,12,240);road(0,0,240,12);
+
+// ===== ADDED ONLY: realistic meadow greenery =====
+// Green-area visuals only. The field, roads and gameplay geometry are untouched.
+// Inspired by the uploaded meadow reference: many individual grass leaves,
+// small natural flower clusters, and varied organic density rather than cone meshes.
+
+function makeMeadowTexture(){
+  const c=document.createElement('canvas');c.width=768;c.height=768;
+  const ctx=c.getContext('2d');
+
+  const g=ctx.createLinearGradient(0,0,c.width,c.height);
+  g.addColorStop(0,'#628f48');
+  g.addColorStop(.45,'#6b994d');
+  g.addColorStop(1,'#4e7e3b');
+  ctx.fillStyle=g;ctx.fillRect(0,0,c.width,c.height);
+
+  // Fine natural ground variation.
+  for(let i=0;i<26000;i++){
+    const x=Math.random()*c.width,y=Math.random()*c.height;
+    const a=.025+Math.random()*.12;
+    const dark=Math.random()>.52;
+    ctx.fillStyle=dark
+      ? `rgba(28,58,23,${a})`
+      : `rgba(150,177,93,${a*.8})`;
+    const w=.35+Math.random()*2.2,h=.35+Math.random()*2.2;
+    ctx.fillRect(x,y,w,h);
+  }
+
+  // Fine grass-like marks in the base texture.
+  for(let i=0;i<1400;i++){
+    const x=Math.random()*c.width,y=Math.random()*c.height;
+    ctx.strokeStyle=`rgba(35,77,28,${.06+Math.random()*.10})`;
+    ctx.lineWidth=.5+Math.random()*.8;
+    ctx.beginPath();
+    ctx.moveTo(x,y);
+    ctx.lineTo(x+(Math.random()-.5)*3,y-3-Math.random()*9);
+    ctx.stroke();
+  }
+
+  const tex=new THREE.CanvasTexture(c);
+  tex.wrapS=THREE.RepeatWrapping;tex.wrapT=THREE.RepeatWrapping;
+  tex.repeat.set(5.5,5.5);
+  tex.anisotropy=8;
+  tex.colorSpace=THREE.SRGBColorSpace;
+  return tex;
+}
+
+const meadowTexture=makeMeadowTexture();
+ground.material.map=meadowTexture;
+ground.material.roughness=.99;
+ground.material.needsUpdate=true;
+
+function isGreenArea(x,z){
+  // Keep vegetation away from the two roads and the cultivated field.
+  if(Math.abs(x)<7.2 || Math.abs(z)<7.2)return false;
+  if(x>-50 && x<50 && z>22 && z<98)return false;
+  return true;
+}
+
+// ---- Individual grass leaves ----
+function makeGrassLeafGeometry(){
+  const w=.055,h=.46,b=.075;
+
+  // A slightly bent, pointed leaf ribbon.
+  const verts=new Float32Array([
+    -w*.50,0,0,   w*.50,0,0,
+    -w*.30,h*.48,b*.25,  w*.30,h*.48,b*.25,
+     0,h,b
+  ]);
+  const indices=[0,1,2, 1,3,2, 2,3,4];
+
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+const grassLeafGeo=makeGrassLeafGeometry();
+
+function addGrassLeafClusters(clusterCount,bladesPerCluster,material,hMin,hMax){
+  const total=clusterCount*bladesPerCluster;
+  const mesh=new THREE.InstancedMesh(
+    grassLeafGeo,
+    material,
+    total
+  );
+  mesh.frustumCulled=false;
+  world.add(mesh);
+
+  const dummy=new THREE.Object3D();
+  let n=0,tries=0;
+
+  while(n<total && tries<clusterCount*60){
+    tries++;
+
+    const cx=-108+Math.random()*216;
+    const cz=-108+Math.random()*216;
+    if(!isGreenArea(cx,cz))continue;
+
+    for(let b=0;b<bladesPerCluster && n<total;b++){
+      const ang=Math.random()*Math.PI*2;
+      const ring=.03+Math.random()*.18;
+      const x=cx+Math.cos(ang)*ring;
+      const z=cz+Math.sin(ang)*ring;
+
+      if(!isGreenArea(x,z))continue;
+
+      const h=hMin+Math.random()*(hMax-hMin);
+      const lean=(Math.random()-.5)*.22;
+
+      dummy.position.set(x,.29,z);
+      dummy.scale.set(
+        .75+Math.random()*.45,
+        h,
+        .75+Math.random()*.20
+      );
+      dummy.rotation.set(
+        lean*(Math.random()>.5?1:-1),
+        Math.random()*Math.PI*2,
+        lean*(Math.random()>.5?1:-1)
+      );
+      dummy.updateMatrix();
+      mesh.setMatrixAt(n++,dummy.matrix);
+    }
+  }
+
+  mesh.count=n;
+  mesh.instanceMatrix.needsUpdate=true;
+  return mesh;
+}
+
+const grassLeafMat1=new THREE.MeshStandardMaterial({
+  color:0x4d8437,
+  roughness:.98,
+  metalness:0,
+  side:THREE.DoubleSide
+});
+const grassLeafMat2=new THREE.MeshStandardMaterial({
+  color:0x609747,
+  roughness:.98,
+  metalness:0,
+  side:THREE.DoubleSide
+});
+const grassLeafMat3=new THREE.MeshStandardMaterial({
+  color:0x39702f,
+  roughness:.98,
+  metalness:0,
+  side:THREE.DoubleSide
+});
+
+addGrassLeafClusters(430,4,grassLeafMat1,.42,.82);
+addGrassLeafClusters(330,4,grassLeafMat2,.34,.72);
+addGrassLeafClusters(250,4,grassLeafMat3,.30,.64);
+
+// Extra fine individual leaves around the outer meadow for natural density.
+addGrassLeafClusters(180,3,grassLeafMat2,.24,.52);
+
+// ---- Small flowering meadow plants ----
+const flowerStemGeo=new THREE.CylinderGeometry(.014,.021,.26,6);
+const flowerPetalGeo=new THREE.SphereGeometry(.055,8,6);
+const flowerCenterGeo=new THREE.SphereGeometry(.032,8,6);
+const flowerLeafGeo=new THREE.BufferGeometry();
+
+{
+  // Pointed leaf: wide near the base, narrow at the tip.
+  const verts=new Float32Array([
+    0,0,0,
+    .055,.01,.11,
+    0,.012,.34,
+    -.055,.01,.11
+  ]);
+  flowerLeafGeo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+  flowerLeafGeo.setIndex([0,1,2,0,2,3]);
+  flowerLeafGeo.computeVertexNormals();
+}
+
+const flowerStemMat=new THREE.MeshStandardMaterial({
+  color:0x2f6c30,
+  roughness:.97
+});
+const flowerLeafMat=new THREE.MeshStandardMaterial({
+  color:0x3f7f34,
+  roughness:.97,
+  side:THREE.DoubleSide
+});
+
+const flowerPetalColors=[
+  0xf4d64a, // yellow
+  0xffffff, // white
+  0xf28eae, // pink
+  0xf39a42  // orange
+];
+
+const stemMesh=new THREE.InstancedMesh(
+  flowerStemGeo,flowerStemMat,180
+);
+stemMesh.frustumCulled=false;
+world.add(stemMesh);
+
+const leafMesh=new THREE.InstancedMesh(
+  flowerLeafGeo,flowerLeafMat,360
+);
+leafMesh.frustumCulled=false;
+world.add(leafMesh);
+
+const petalMeshes=flowerPetalColors.map(c=>{
+  const m=new THREE.InstancedMesh(
+    flowerPetalGeo,
+    new THREE.MeshStandardMaterial({color:c,roughness:.72,metalness:0}),
+    900
+  );
+  m.frustumCulled=false;
+  world.add(m);
+  return m;
+});
+
+const centerMesh=new THREE.InstancedMesh(
+  flowerCenterGeo,
+  new THREE.MeshStandardMaterial({color:0xd89428,roughness:.70}),
+  180
+);
+centerMesh.frustumCulled=false;
+world.add(centerMesh);
+
+const dummyFlower=new THREE.Object3D();
+const dummyPetal=new THREE.Object3D();
+let stemCount=0,leafCount=0,centerCount=0;
+const petalCounts=[0,0,0,0];
+
+let flowerPlaced=0,flowerTries=0;
+
+while(flowerPlaced<180 && flowerTries<9000){
+  flowerTries++;
+
+  const x=-106+Math.random()*212;
+  const z=-106+Math.random()*212;
+  if(!isGreenArea(x,z))continue;
+
+  // Natural clumping: keep many flowers in little groups.
+  if(Math.random()<.72){
+    const groupX=x+(Math.random()-.5)*1.4;
+    const groupZ=z+(Math.random()-.5)*1.4;
+    if(isGreenArea(groupX,groupZ)){
+      // Use the local clump position.
+    }
+  }
+
+  const type=Math.floor(Math.random()*flowerPetalColors.length);
+  const scale=.72+Math.random()*.58;
+  const stemY=.30;
+  const headY=stemY+.27*scale;
+
+  dummyFlower.position.set(x,stemY,z);
+  dummyFlower.rotation.y=Math.random()*Math.PI*2;
+  dummyFlower.scale.setScalar(scale);
+  dummyFlower.updateMatrix();
+  stemMesh.setMatrixAt(stemCount++,dummyFlower.matrix);
+
+  // Two broad leaves per plant, pointing away from the stem.
+  for(let li=0;li<2;li++){
+    const side=li===0?1:-1;
+    dummyFlower.position.set(
+      x+side*(.045+Math.random()*.035),
+      stemY+.075*scale,
+      z+(.02+Math.random()*.08)
+    );
+    dummyFlower.rotation.set(
+      side*.38,
+      Math.random()*Math.PI*2,
+      side*.16
+    );
+    dummyFlower.scale.set(.62*scale,.62*scale,.62*scale);
+    dummyFlower.updateMatrix();
+    leafMesh.setMatrixAt(leafCount++,dummyFlower.matrix);
+  }
+
+  // Five petals around the center.
+  for(let p=0;p<5;p++){
+    const a=(p/5)*Math.PI*2 + Math.random()*.14;
+    const pr=.060*scale;
+
+    dummyPetal.position.set(
+      x+Math.cos(a)*pr,
+      headY,
+      z+Math.sin(a)*pr
+    );
+    dummyPetal.rotation.set(
+      .42,
+      -a,
+      0
+    );
+    dummyPetal.scale.set(
+      .82*scale,
+      .28*scale,
+      1.18*scale
+    );
+    dummyPetal.updateMatrix();
+
+    petalMeshes[type].setMatrixAt(petalCounts[type]++,dummyPetal.matrix);
+  }
+
+  dummyPetal.position.set(x,headY+.005,z);
+  dummyPetal.rotation.set(0,0,0);
+  dummyPetal.scale.setScalar(scale);
+  dummyPetal.updateMatrix();
+  centerMesh.setMatrixAt(centerCount++,dummyPetal.matrix);
+
+  flowerPlaced++;
+}
+
+stemMesh.count=stemCount;
+leafMesh.count=leafCount;
+centerMesh.count=centerCount;
+
+stemMesh.instanceMatrix.needsUpdate=true;
+leafMesh.instanceMatrix.needsUpdate=true;
+centerMesh.instanceMatrix.needsUpdate=true;
+
+petalMeshes.forEach((m,i)=>{
+  m.count=petalCounts[i];
+  m.instanceMatrix.needsUpdate=true;
+});
+
+// Low wild-grass clumps around field/road edges, using leaves rather than cones.
+const edgeGrassMat=new THREE.MeshStandardMaterial({
+  color:0x477d35,
+  roughness:.99,
+  metalness:0,
+  side:THREE.DoubleSide
+});
+addGrassLeafClusters(150,5,edgeGrassMat,.22,.50);
+
+// ===== END ADDED ONLY: realistic meadow greenery =====
+
+
+// ===== ADDED ONLY: NNR STUDIOS / NNR GAMESPACE roadside billboards =====
+function makeNNRBillboardTexture(){
+ const c=document.createElement('canvas');c.width=1400;c.height=600;
+ const ctx=c.getContext('2d');
+
+ // Dark premium screen like a modern game-studio billboard.
+ const bg=ctx.createLinearGradient(0,0,c.width,c.height);
+ bg.addColorStop(0,'#071126');
+ bg.addColorStop(.55,'#101944');
+ bg.addColorStop(1,'#15102d');
+ ctx.fillStyle=bg;ctx.fillRect(0,0,c.width,c.height);
+
+ // Decorative neon-style circuit lines.
+ ctx.lineWidth=5;
+ for(let i=0;i<12;i++){
+   const y=70+i*43;
+   ctx.strokeStyle=i%2===0?'rgba(72,193,255,.55)':'rgba(255,157,77,.45)';
+   ctx.beginPath();
+   ctx.moveTo(35,y);
+   ctx.lineTo(170,y);
+   ctx.lineTo(205,y-28);
+   ctx.lineTo(365,y-28);
+   ctx.stroke();
+   ctx.beginPath();
+   ctx.arc(372,y-28,8,0,Math.PI*2);
+   ctx.fillStyle=i%2===0?'#48c1ff':'#ff9d4d';ctx.fill();
+ }
+
+ // Small hexagonal accents.
+ function hex(x,y,r,stroke){
+   ctx.strokeStyle=stroke;ctx.lineWidth=4;ctx.beginPath();
+   for(let i=0;i<6;i++){
+     const a=Math.PI/3*i+Math.PI/6;
+     const px=x+Math.cos(a)*r,py=y+Math.sin(a)*r;
+     i?ctx.lineTo(px,py):ctx.moveTo(px,py);
+   }
+   ctx.closePath();ctx.stroke();
+ }
+ hex(1130,110,48,'rgba(75,196,255,.8)');
+ hex(1270,420,38,'rgba(255,161,79,.75)');
+ hex(1180,480,22,'rgba(75,196,255,.65)');
+
+ // Main title.
+ ctx.textAlign='center';ctx.textBaseline='middle';
+ ctx.shadowColor='rgba(80,190,255,.35)';ctx.shadowBlur=20;
+ ctx.fillStyle='#ffffff';
+ ctx.font='900 116px Arial Black, Arial, sans-serif';
+ ctx.fillText('NNR',700,190);
+ ctx.shadowBlur=0;
+ ctx.fillStyle='#f5f8ff';
+ ctx.font='900 84px Arial Black, Arial, sans-serif';
+ ctx.fillText('STUDIOS',700,290);
+
+ // Orange/blue underline accents.
+ ctx.fillStyle='#ff9d4d';ctx.fillRect(390,330,620,8);
+ ctx.fillStyle='#48c1ff';ctx.fillRect(500,345,400,5);
+
+ // Secondary brand name.
+ ctx.fillStyle='#FF001F';
+ ctx.font='900 66px Arial Black, Arial, sans-serif';
+ ctx.fillText('GEC GAMESPACE',700,430);
+
+ // Small footer.
+ ctx.fillStyle='#bfc9e6';
+ ctx.font='700 25px Arial, sans-serif';
+ ctx.fillText('PLAY  •  CREATE  •  FARM',700,515);
+
+ const tex=new THREE.CanvasTexture(c);
+ tex.colorSpace=THREE.SRGBColorSpace;
+ tex.anisotropy=8;
+ return tex;
+}
+
+function createNNRBillboard(x,z,rotY=0,scale=1){
+ const g=new THREE.Group();world.add(g);
+ g.position.set(x,0,z);g.rotation.y=rotY;g.scale.setScalar(scale);
+
+ const frameMat=new THREE.MeshStandardMaterial({color:0x171c22,roughness:.34,metalness:.72});
+ const edgeMat=new THREE.MeshStandardMaterial({color:0x8d949b,roughness:.28,metalness:.82});
+ const screenMat=new THREE.MeshStandardMaterial({map:makeNNRBillboardTexture(),roughness:.46,metalness:.05,emissive:0x182040,emissiveIntensity:.28});
+
+ // Two heavy steel legs.
+ for(const px of[-3.7,3.7]){
+   add(new THREE.BoxGeometry(.30,6.8,.30),frameMat,px,3.4,0,g);
+   add(new THREE.BoxGeometry(.85,.22,.85),frameMat,px,0.12,0,g);
+   add(new THREE.BoxGeometry(1.45,.18,.45),frameMat,px,0.36,0,g);
+ }
+
+ // Main framed advertising board.
+ add(new THREE.BoxGeometry(8.6,3.8,.28),frameMat,0,6.15,0,g);
+ add(new THREE.BoxGeometry(8.28,3.48,.055),screenMat,0,6.15,.17,g);
+
+ // Bright outer trim for a premium roadside-sign look.
+ add(new THREE.BoxGeometry(8.82,.12,.36),edgeMat,0,8.03,.04,g);
+ add(new THREE.BoxGeometry(8.82,.12,.36),edgeMat,0,4.27,.04,g);
+ add(new THREE.BoxGeometry(.12,3.88,.36),edgeMat,-4.35,6.15,.04,g);
+ add(new THREE.BoxGeometry(.12,3.88,.36),edgeMat,4.35,6.15,.04,g);
+
+ // Rear support beam.
+ add(new THREE.BoxGeometry(8.0,.28,.34),frameMat,0,2.95,-.05,g);
+
+ // Ground anchor / shadow catcher.
+ const base=add(new THREE.BoxGeometry(9.2,.10,1.0),frameMat,0,.06,0,g);
+ base.receiveShadow=true;
+}
+
+// Placed along the main roads so the signs are visible during normal driving.
+createNNRBillboard(7.8,18,-Math.PI/2,0.92);
+createNNRBillboard(-8.0,105,Math.PI/2,0.92);
+// ===== END ADDED ONLY: NNR BILLBOARDS =====
+
+// ===== FIELD VISUAL ONLY: realistic tilled soil =====
+const FIELD={x1:-50,x2:50,z1:22,z2:98,cols:25,rows:19};
+const cw=(FIELD.x2-FIELD.x1)/FIELD.cols,cd=(FIELD.z2-FIELD.z1)/FIELD.rows;
+
+// Soil-bed thickness is kept at the original height so all existing
+// tractor/plough/trail coordinates continue to work unchanged.
+const fieldBase=add(
+ new THREE.BoxGeometry(FIELD.x2-FIELD.x1,.22,FIELD.z2-FIELD.z1),
+ M(0x654328,.99),
+ 0,.175,(FIELD.z1+FIELD.z2)/2
+);
+
+// Procedural soil texture: small stones, organic particles and fine grain.
+function makeSoilTexture(){
+ const c=document.createElement('canvas');c.width=1024;c.height=1024;
+ const ctx=c.getContext('2d');
+ ctx.fillStyle='#754d2e';ctx.fillRect(0,0,c.width,c.height);
+
+ for(let i=0;i<26000;i++){
+   const x=Math.random()*c.width,y=Math.random()*c.height;
+   const v=35+Math.random()*55;
+   const r=Math.random()*2.3+.35;
+   const warm=Math.random()>.5;
+   ctx.fillStyle=warm?`rgba(${90+v},${58+v*.55},${32+v*.30},${.08+Math.random()*.18})`
+                     :`rgba(25,18,12,${.05+Math.random()*.15})`;
+   ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+ }
+
+ // Fine organic streaks.
+ for(let i=0;i<380;i++){
+   const y=Math.random()*c.height;
+   const x=Math.random()*c.width;
+   const len=20+Math.random()*150;
+   ctx.strokeStyle=`rgba(40,27,17,${.035+Math.random()*.075})`;
+   ctx.lineWidth=.6+Math.random()*1.5;
+   ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+len,y+(Math.random()-.5)*8);ctx.stroke();
+ }
+ const tex=new THREE.CanvasTexture(c);
+ tex.wrapS=THREE.RepeatWrapping;tex.wrapT=THREE.RepeatWrapping;
+ tex.repeat.set(3.2,5.2);tex.anisotropy=8;tex.colorSpace=THREE.SRGBColorSpace;
+ return tex;
+}
+
+function makeSoilBump(){
+ const c=document.createElement('canvas');c.width=512;c.height=512;
+ const ctx=c.getContext('2d');ctx.fillStyle='#888';ctx.fillRect(0,0,c.width,c.height);
+ for(let i=0;i<12000;i++){
+   const x=Math.random()*c.width,y=Math.random()*c.height;
+   const g=85+Math.random()*100;
+   const r=Math.random()*2.2+.3;
+   ctx.fillStyle=`rgb(${g},${g},${g})`;
+   ctx.fillRect(x,y,r,r);
+ }
+ const tex=new THREE.CanvasTexture(c);
+ tex.wrapS=THREE.RepeatWrapping;tex.wrapT=THREE.RepeatWrapping;
+ tex.repeat.set(3.2,5.2);tex.anisotropy=4;
+ return tex;
+}
+
+const soilTexture=makeSoilTexture();
+const soilBump=makeSoilBump();
+const soilSurfaceMat=new THREE.MeshStandardMaterial({
+ map:soilTexture,bumpMap:soilBump,bumpScale:.085,roughness:.985,metalness:0
+});
+const soilSurface=add(
+ new THREE.PlaneGeometry(FIELD.x2-FIELD.x1,FIELD.z2-FIELD.z1,2,2),
+ soilSurfaceMat,0,.287,(FIELD.z1+FIELD.z2)/2
+);
+soilSurface.rotation.x=-Math.PI/2;
+
+// Subtle irregularity in the soil surface without moving the tractor.
+const sp=soilSurface.geometry.attributes.position;
+for(let i=0;i<sp.count;i++){
+ const x=sp.getX(i),z=sp.getY(i);
+ sp.setZ(i,Math.sin(x*.21+z*.13)*.018 + Math.cos(z*.31)*.012);
+}
+sp.needsUpdate=true;
+soilSurface.geometry.computeVertexNormals();
+
+const cells=[];
+const soilG=new THREE.Group();world.add(soilG);
+
+// Visual layer that becomes visible only after a cell is actually ploughed.
+// This makes worked soil clearly distinguishable from untouched soil.
+const ploughedTiles=[];
+function makePloughedTexture(){
+ const c=document.createElement('canvas');c.width=512;c.height=512;
+ const ctx=c.getContext('2d');
+ ctx.fillStyle='#5b3820';ctx.fillRect(0,0,c.width,c.height);
+ for(let i=0;i<9000;i++){
+   const x=Math.random()*c.width,y=Math.random()*c.height;
+   const v=32+Math.random()*42;
+   const rr=.35+Math.random()*1.8;
+   ctx.fillStyle=Math.random()>.55
+     ? `rgba(${82+v},${52+v*.42},${27+v*.25},${.10+Math.random()*.20})`
+     : `rgba(22,13,8,${.07+Math.random()*.16})`;
+   ctx.fillRect(x,y,rr,rr);
+ }
+ // Freshly turned, irregular furrow texture.
+ for(let i=0;i<34;i++){
+   const y=(i/34)*c.height+(-3+Math.random()*6);
+   ctx.strokeStyle=`rgba(38,21,11,${.36+Math.random()*.22})`;
+   ctx.lineWidth=2+Math.random()*3;
+   ctx.beginPath();
+   ctx.moveTo(0,y);
+   for(let x=0;x<=c.width;x+=32){
+     ctx.lineTo(x,y+Math.sin(x*.035+i)*2.8+Math.sin(x*.009)*2);
+   }
+   ctx.stroke();
+   ctx.strokeStyle=`rgba(126,82,45,${.14+Math.random()*.12})`;
+   ctx.lineWidth=.8+Math.random()*1.4;
+   ctx.beginPath();
+   ctx.moveTo(0,y-3);
+   for(let x=0;x<=c.width;x+=32)ctx.lineTo(x,y-3+Math.sin(x*.035+i)*2.8);
+   ctx.stroke();
+ }
+ const tex=new THREE.CanvasTexture(c);
+ tex.wrapS=THREE.RepeatWrapping;tex.wrapT=THREE.RepeatWrapping;
+ tex.repeat.set(1,1);tex.anisotropy=8;tex.colorSpace=THREE.SRGBColorSpace;
+ return tex;
+}
+const ploughedTexture=makePloughedTexture();
+const ploughedMaterial=new THREE.MeshStandardMaterial({
+ map:ploughedTexture,roughness:1,metalness:0,transparent:true,opacity:.96,
+ polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1
+});
+const ploughedG=new THREE.Group();world.add(ploughedG);
+
+for(let r=0;r<FIELD.rows;r++){
+ cells[r]=[];
+ ploughedTiles[r]=[];
+ for(let c=0;c<FIELD.cols;c++){
+   const tone=[0x7a4f2f,0x71472a,0x805534,0x74492c][(r*3+c*5)%4];
+   // Slightly overlapping tiles remove the old checkerboard gaps.
+   const q=add(
+     new THREE.PlaneGeometry(cw+.035,cd+.035),
+     new THREE.MeshStandardMaterial({color:tone,map:soilTexture,transparent:true,opacity:.17,roughness:1}),
+     FIELD.x1+(c+.5)*cw,.291,FIELD.z1+(r+.5)*cd,soilG
+   );
+   q.rotation.x=-Math.PI/2;
+   cells[r][c]=false;q.userData.base=tone;
+
+   const worked=add(
+     new THREE.PlaneGeometry(cw+.02,cd+.02),
+     ploughedMaterial.clone(),
+     FIELD.x1+(c+.5)*cw,.307,FIELD.z1+(r+.5)*cd,ploughedG
+   );
+   worked.rotation.x=-Math.PI/2;
+   worked.visible=false;
+   ploughedTiles[r][c]=worked;
+ }
+}
+
+// Deep, uneven agricultural furrows across the field.
+const furrowG=new THREE.Group();world.add(furrowG);
+const furrowMat=new THREE.MeshStandardMaterial({color:0x4a2c1b,roughness:1,metalness:0});
+function addFurrow(cx){
+ const segs=42;
+ const across=[-.48,-.23,0,.23,.48];
+ const heights=[.008,.055,-.026,.058,.010];
+ const verts=[],indices=[];
+ for(let iz=0;iz<=segs;iz++){
+   const z=FIELD.z1+(iz/segs)*(FIELD.z2-FIELD.z1);
+   const wob=Math.sin(z*.37+cx*.21)*.012+Math.sin(z*1.13+cx)*.006;
+   for(let ix=0;ix<across.length;ix++){
+     const x=cx+across[ix];
+     const h=.292+heights[ix]+wob+(Math.random()-.5)*.004;
+     verts.push(x,h,z);
+   }
+ }
+ for(let iz=0;iz<segs;iz++)for(let ix=0;ix<4;ix++){
+   const a=iz*5+ix,b=a+1,c=a+5,d=c+1;
+   indices.push(a,c,b,b,c,d);
+ }
+ const geo=new THREE.BufferGeometry();
+ geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+ geo.setIndex(indices);geo.computeVertexNormals();
+ const m=new THREE.Mesh(geo,furrowMat);m.receiveShadow=true;furrowG.add(m);
+}
+for(let x=FIELD.x1+.9;x<FIELD.x2-.4;x+=2.35)addFurrow(x);
+
+// Small scattered soil clumps for natural variation.
+const clumpMat=M(0x56351f,.99);
+for(let i=0;i<95;i++){
+ const x=FIELD.x1+2+Math.random()*(FIELD.x2-FIELD.x1-4);
+ const z=FIELD.z1+2+Math.random()*(FIELD.z2-FIELD.z1-4);
+ const s=.045+Math.random()*.10;
+ const cl=add(new THREE.IcosahedronGeometry(s,0),clumpMat,x,.305,z,furrowG);
+ cl.scale.y=.45+Math.random()*.55;
+}
+
+function fieldCell(){
+ const x=tractor.position.x,z=tractor.position.z;
+ if(x<FIELD.x1||x>FIELD.x2||z<FIELD.z1||z>FIELD.z2)return null;
+ return{c:Math.floor((x-FIELD.x1)/cw),r:Math.floor((z-FIELD.z1)/cd)};
+}
+function workedPct(){let a=0,n=FIELD.rows*FIELD.cols;for(const row of cells)for(const v of row)if(v)a++;return a/n}
+function resetField(){for(let r=0;r<FIELD.rows;r++)for(let c=0;c<FIELD.cols;c++){cells[r][c]=false;soilG.children[r*FIELD.cols+c].material.color.setHex(soilG.children[r*FIELD.cols+c].userData.base);ploughedTiles[r][c].visible=false}}
+
+function tree(x,z,s=1){
+ const g=new THREE.Group();world.add(g);
+ add(new THREE.CylinderGeometry(.32*s,.48*s,3*s,10),M(0x69462d),0,1.5*s,0,g);
+ add(new THREE.SphereGeometry(2.15*s,14,12),M(0x316e36),0,4*s,0,g);
+}
+[[-80,-72,1.5],[-63,-22,1],[-72,45,1.2],[72,-78,1.4],[66,-8,1.1],[76,42,1.3],[60,105,1.1],[15,-60,1],[-19,-63,1.2]].forEach(v=>tree.apply(null,v));
+
+function barn(x,z,s=1){
+ const g=new THREE.Group();world.add(g);
+ add(new THREE.BoxGeometry(11*s,6.5*s,9*s),M(0xa33e31),0,3.25*s,0,g);
+ const roof=add(new THREE.ConeGeometry(8*s,5.2*s,4),M(0x49342c),0,8.3*s,0,g);roof.rotation.y=Math.PI/4;
+ add(new THREE.BoxGeometry(2.5*s,3.7*s,.16),M(0x372820),0,1.85*s,4.56*s,g);
+}
+barn(-27,-22,1);barn(29,-34,.75);
+
+// Tractor: front is local +Z. 3D recreation based on the uploaded NAGESHWAR 241 DI reference.
+const tractor=new THREE.Group();scene.add(tractor);tractor.position.set(0,0,0);
+
+// Materials
+const tractorRed=M(0xc91f16,.62,.05);
+const tractorRed2=M(0xe02d20,.58,.04);
+const darkMetal=M(0x202321,.48,.35);
+const black=M(0x121515,.90,.02);
+const rubber=M(0x111313,.98,.01);
+const silver=M(0xb9b9b5,.34,.68);
+const chrome=M(0xd7d7d2,.23,.82);
+const grey=M(0x4b4e4b,.55,.35);
+const exhaustMat=M(0x181b1a,.65,.55);
+
+// Main chassis and long bonnet, matching the simple agricultural body shape in the reference.
+add(new THREE.BoxGeometry(4.15,.72,5.35),darkMetal,0,1.08,0,tractor);
+add(new THREE.BoxGeometry(3.62,1.38,3.65),tractorRed,0,2.12,.88,tractor);
+add(new THREE.BoxGeometry(3.32,.24,3.38),tractorRed2,0,2.93,.94,tractor);
+
+// Raised rear deck / operator area.
+add(new THREE.BoxGeometry(3.7,.28,1.75),tractorRed,0,2.55,-1.15,tractor);
+add(new THREE.BoxGeometry(3.45,.20,1.70),darkMetal,0,2.39,-1.08,tractor);
+
+// Front radiator/grille frame.
+add(new THREE.BoxGeometry(3.38,2.08,.22),chrome,0,2.08,2.73,tractor);
+add(new THREE.BoxGeometry(3.02,1.72,.13),black,0,2.12,2.86,tractor);
+for(let i=-.65;i<=.65;i+=.28){
+ add(new THREE.BoxGeometry(2.72,.085,.06),grey,0,2.12+i,2.95,tractor);
+}
+
+// Front bumper and center support.
+add(new THREE.BoxGeometry(4.30,.38,.62),darkMetal,0,.62,3.03,tractor);
+add(new THREE.BoxGeometry(.22,.72,.80),darkMetal,0,1.00,2.95,tractor);
+
+// Headlights.
+function headlight(x){
+ const h=add(new THREE.CylinderGeometry(.27,.27,.16,24),chrome,x,2.28,3.02,tractor);
+ h.rotation.x=Math.PI/2;
+ const lens=add(new THREE.CylinderGeometry(.19,.19,.17,24),M(0xf4f2d2,.22,.08),x,2.28,3.11,tractor);
+ lens.rotation.x=Math.PI/2;
+}
+headlight(-1.03);headlight(1.03);
+
+// Front grille emblem panel.
+add(new THREE.BoxGeometry(.55,.58,.08),darkMetal,0,1.98,3.04,tractor);
+
+// Engine side covers and exposed lower engine details.
+for(const x of[-1.84,1.84]){
+ add(new THREE.BoxGeometry(.14,1.35,2.85),tractorRed2,x,2.06,.86,tractor);
+ add(new THREE.BoxGeometry(.10,.58,1.95),darkMetal,x*1.002,1.45,.72,tractor);
+ add(new THREE.BoxGeometry(.12,.28,1.40),grey,x*1.004,1.87,.02,tractor);
+}
+// Visible mechanical block / intake / exhaust pieces.
+add(new THREE.BoxGeometry(2.05,.85,1.55),darkMetal,0,1.52,-.05,tractor);
+add(new THREE.CylinderGeometry(.34,.34,1.55,20),grey,0,1.60,.70,tractor).rotation.z=Math.PI/2;
+add(new THREE.CylinderGeometry(.24,.24,1.35,18),darkMetal,.82,1.90,.36,tractor).rotation.z=Math.PI/2;
+add(new THREE.CylinderGeometry(.20,.20,.95,18),grey,-.75,1.65,.45,tractor).rotation.z=Math.PI/2;
+
+// Large rear fenders and small front fenders.
+for(const x of[-2.02,2.02]){
+ add(new THREE.BoxGeometry(.24,.48,3.10),tractorRed,x,2.62,-1.28,tractor);
+ add(new THREE.BoxGeometry(.26,.20,3.30),tractorRed2,x,2.91,-1.25,tractor);
+}
+for(const x of[-1.88,1.88]){
+ add(new THREE.BoxGeometry(.20,.24,1.75),tractorRed2,x,1.60,1.63,tractor);
+}
+
+// Driver's seat, seat back, steering column and wheel.
+add(new THREE.BoxGeometry(1.55,.22,1.25),black,0,2.88,-.78,tractor);
+add(new THREE.BoxGeometry(1.34,1.02,.20),black,0,3.36,-1.33,tractor);
+add(new THREE.CylinderGeometry(.09,.09,.68,14),darkMetal,0,2.66,.22,tractor);
+const steerWheel=add(new THREE.TorusGeometry(.38,.058,12,26),black,0,3.20,.43,tractor);
+steerWheel.rotation.x=Math.PI/2;
+add(new THREE.BoxGeometry(.10,.62,.10),darkMetal,0,2.92,.20,tractor);
+
+// Open-cab roll-over bar, like the reference tractor.
+for(const x of[-1.34,1.34]){
+ add(new THREE.CylinderGeometry(.095,.095,3.55,12),darkMetal,x,3.86,-1.18,tractor);
+}
+add(new THREE.BoxGeometry(2.88,.13,.13),darkMetal,0,5.62,-1.18,tractor);
+
+// Tall exhaust pipe.
+add(new THREE.CylinderGeometry(.13,.16,3.05,16),exhaustMat,1.53,3.78,.94,tractor);
+add(new THREE.CylinderGeometry(.17,.17,.30,16),black,1.53,5.28,.94,tractor);
+
+// Air cleaner / intake stack.
+add(new THREE.CylinderGeometry(.18,.18,.98,16),grey,-1.25,4.12,.82,tractor);
+add(new THREE.CylinderGeometry(.33,.33,.25,20),chrome,-1.25,4.65,.82,tractor);
+add(new THREE.CylinderGeometry(.25,.25,.11,20),darkMetal,-1.25,4.83,.82,tractor);
+
+// Mirrors and simple lights at the rear corners.
+for(const x of[-1.60,1.60]){
+ add(new THREE.BoxGeometry(.10,.72,.10),darkMetal,x,4.00,-.70,tractor);
+ add(new THREE.CylinderGeometry(.20,.20,.07,20),darkMetal,x,4.42,-.70,tractor).rotation.z=Math.PI/2;
+}
+
+// Wheel system: keep the original reference names so all existing driving code continues to work.
+const wheelPivots=[];
+function wheel(x,z,r,front){
+ const g=new THREE.Group();
+ g.position.set(x,0,z);
+ tractor.add(g);
+ const tire=add(new THREE.CylinderGeometry(r,r,.90,32),rubber,0,r,0,g);
+ tire.rotation.z=Math.PI/2;
+ tire.userData.radius=r;
+ // Raised tread blocks around each wheel for a more agricultural look.
+// Realistic agricultural tractor tyre tread
+const treadCount = 28;
+const treadRadius = r-0.16;
+
+for(let i = 0; i < treadCount; i++){
+
+    const a = (i / treadCount) * Math.PI * 2;
+
+    // Position around the tyre circumference
+    const y = Math.cos(a) * treadRadius+1.1;
+    const z = Math.sin(a) * treadRadius+0.1;
+
+    // Alternating chevron direction
+    const chevron = (i % 2 === 0) ? 1 : -1;
+
+    // Left half of the tread
+    const leftTread = add(
+        new THREE.BoxGeometry(.42, .40, .70),
+        black,
+        -.23,
+        y,
+        z,
+        g
+    );
+
+    leftTread.rotation.x = a;
+    leftTread.rotation.z = chevron * 0.32;
+
+    // Right half of the tread
+    const rightTread = add(
+        new THREE.BoxGeometry(.42, .30, .70),
+        black,
+        .23,
+        y,
+        z,
+        g
+    );
+
+    rightTread.rotation.x = a;
+    rightTread.rotation.z = -chevron * 0.32;
+}
+ const rim=add(new THREE.CylinderGeometry(r*.52,r*.52,.94,28),silver,0,r,0,g);
+ rim.rotation.z=Math.PI/2;
+ const hub=add(new THREE.CylinderGeometry(r*.20,r*.20,.98,20),grey,0,r,0,g);
+ hub.rotation.z=Math.PI/2;
+ for(let i=0;i<8;i++){
+   const a=(i/8)*Math.PI*2;
+   const bolt=add(new THREE.SphereGeometry(r*.045,8,8),chrome,Math.cos(a)*r*.31,r,Math.sin(a)*r*.31,g);
+ }
+ wheelPivots.push({g,w:tire,front});
+ return g;
+}
+const FL=wheel(-1.96,1.62,.88,true);
+const FR=wheel(1.96,1.62,.88,true);
+const RL=wheel(-2.12,-1.58,1.28,false);
+const RR=wheel(2.12,-1.58,1.28,false);
+
+// Side decals: the main visual identity is NAGESHWAR 241 DI.
+function makeSideDecal(){
+ const canvas=document.createElement('canvas');
+ canvas.width=1024;canvas.height=220;
+ const ctx=canvas.getContext('2d');
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ ctx.fillStyle='#e7e7e2';ctx.fillRect(14,32,996,156);
+ ctx.strokeStyle='#1b1c1c';ctx.lineWidth=8;ctx.strokeRect(14,32,996,156);
+ ctx.fillStyle='#151717';ctx.textAlign='center';ctx.textBaseline='middle';
+ ctx.font='900 86px Arial Black, Arial, sans-serif';ctx.fillText('NAGESHWAR',500,86);
+ ctx.font='700 54px Arial, sans-serif';ctx.fillText('241 DI',790,147);
+ const tex=new THREE.CanvasTexture(canvas);tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=4;
+ const mat=new THREE.MeshBasicMaterial({map:tex,transparent:true,side:THREE.DoubleSide});
+ return mat;
+}
+const sideDecal=makeSideDecal();
+for(const x of[-2.012,2.012]){
+ const decal=new THREE.Mesh(new THREE.PlaneGeometry(2.65,.57),sideDecal);
+ decal.position.set(x,2.34,.94);
+ decal.rotation.y=x<0?-Math.PI/2:Math.PI/2;
+ tractor.add(decal);
+}
+
+// Rear three-point hitch + detachable plough
+const plough=new THREE.Group();tractor.add(plough);plough.position.set(0,.18,-3.05);
+add(new THREE.BoxGeometry(.28,.55,1.6),M(0x3d4542,.46,.35),0,.8,-2.1,tractor);
+for(const x of[-.95,.95])add(new THREE.BoxGeometry(.13,.14,1.4),M(0x4b5350,.45,.4),x,.63,-2.62,tractor);
+add(new THREE.BoxGeometry(4.0,.26,.36),M(0x5b6267,.46,.45),0,.7,0,plough);
+for(let x=-1.5;x<=1.5;x+=.6){const t=add(new THREE.BoxGeometry(.13,.8,.34),M(0x202426,.38,.5),x,.25,-.67,plough);t.rotation.x=-.35}
+
+// ===== ADDED ONLY: detachable agricultural trailer =====
+function makeTrailerSideTexture(){
+  const c=document.createElement('canvas');c.width=1200;c.height=520;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle='#087bd2';ctx.fillRect(0,0,c.width,c.height);
+  ctx.fillStyle='#0b5eac';ctx.fillRect(0,0,c.width,38);
+  ctx.fillStyle='#ffd31a';ctx.fillRect(0,245,c.width,42);
+  ctx.fillStyle='#ffd31a';ctx.fillRect(0,455,c.width,14);
+  ctx.strokeStyle='#9fe7ff';ctx.lineWidth=6;ctx.strokeRect(18,18,c.width-36,c.height-36);
+
+  // Decorative painted floral motifs inspired by Indian farm-trailer artwork.
+  for(let i=0;i<8;i++){
+   const x=75+i*150,y=148+(i%2)*6;
+   ctx.fillStyle=i%2?'#ffbf21':'#f25b38';
+   for(let p=0;p<8;p++){
+    const a=p*Math.PI/4;
+    ctx.beginPath();ctx.ellipse(x+Math.cos(a)*22,y+Math.sin(a)*22,12,25,a,0,Math.PI*2);ctx.fill();
+   }
+   ctx.fillStyle='#f7e54b';ctx.beginPath();ctx.arc(x,y,12,0,Math.PI*2);ctx.fill();
+  }
+  ctx.fillStyle='#e9f7ff';ctx.font='900 46px Arial Black,Arial,sans-serif';ctx.textAlign='center';ctx.fillText('NAGESHWAR FARM TRAILER',600,88);
+  const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=8;
+  return tex;
+}
+
+// Articulated hitch: the trailer rotates around this pivot while following the tractor.
+const trailerHitch=new THREE.Group();
+tractor.add(trailerHitch);
+trailerHitch.position.set(0,0,-3.80);
+
+const trailer=new THREE.Group();
+trailerHitch.add(trailer);
+trailer.position.set(0,0,0);
+
+const trailerBlue=M(0x087bd2,.60,.08);
+const trailerBlueDark=M(0x07589e,.62,.10);
+const trailerYellow=M(0xffd21a,.58,.05);
+const trailerMetal=M(0x1d2327,.48,.58);
+const trailerRubber=M(0x101313,.98,.01);
+
+// =====================================================
+// TRAILER SIZE CUSTOMIZATION
+// Change only these four values to customize the trailer.
+// =====================================================
+const trailerLength = 6.90;      // Front-to-back cargo body length
+const trailerWidth  = 4.25;      // Left-to-right body width
+const trailerFloorY = 1.58;      // Floor/basement height above ground
+const trailerWallHeight = 1.70;  // Side-wall height
+
+// The wall sits directly on top of the floor.
+const trailerWallY = trailerFloorY + trailerWallHeight/2;
+const halfTrailerWidth = trailerWidth/2;
+
+// Keep the wheel height independent so you can raise/lower the body
+// without accidentally moving the wheels.
+const trailerWheelRadius = .86;
+const trailerWheelCenterY = .86;
+
+// Derived positions.
+const trailerFrontZ = -1.55;
+const trailerRearZ = trailerFrontZ-trailerLength;
+const trailerBodyCenterZ = (trailerFrontZ+trailerRearZ)/2;
+
+// Derived trim heights.
+// The upper rail automatically follows the wall height, so you can
+// change trailerFloorY / trailerWallHeight without repositioning it.
+const trailerUpperRailY = trailerWallY + .82;
+const trailerLowerTrimY = trailerWallY + .45;
+
+// Main cargo floor.
+add(
+  new THREE.BoxGeometry(trailerWidth,.24,trailerLength),
+  trailerMetal,0,trailerFloorY,trailerBodyCenterZ,trailer
+);
+
+// Front wall.
+add(
+  new THREE.BoxGeometry(trailerWidth+.03,trailerWallHeight,.22),
+  trailerBlue,0,trailerWallY,trailerFrontZ,trailer
+);
+
+// Rear wall.
+add(
+  new THREE.BoxGeometry(trailerWidth+.03,trailerWallHeight,.22),
+  trailerBlue,0,trailerWallY,trailerRearZ,trailer
+);
+
+// Left side wall.
+add(
+  new THREE.BoxGeometry(.22,trailerWallHeight,trailerLength),
+  trailerBlue,-halfTrailerWidth,trailerWallY,trailerBodyCenterZ,trailer
+);
+
+// Right side wall.
+add(
+  new THREE.BoxGeometry(.22,trailerWallHeight,trailerLength),
+  trailerBlue,halfTrailerWidth,trailerWallY,trailerBodyCenterZ,trailer
+);
+
+// Upper rails and yellow trim.
+for(const x of[-halfTrailerWidth-.065,halfTrailerWidth+.065]){
+  add(
+    new THREE.BoxGeometry(.22,.14,trailerLength),
+    trailerYellow,x,trailerUpperRailY,trailerBodyCenterZ,trailer
+  );
+}
+const trimWidth = trailerWidth+.36;
+add(new THREE.BoxGeometry(trimWidth,.14,.24),trailerYellow,0,trailerUpperRailY,trailerFrontZ,trailer);
+add(new THREE.BoxGeometry(trimWidth,.14,.20),trailerYellow,0,trailerUpperRailY,trailerRearZ-.02,trailer);
+
+const lowerTrimWidth = trailerWidth-.03;
+add(new THREE.BoxGeometry(lowerTrimWidth,.11,.11),trailerYellow,0,trailerLowerTrimY,trailerFrontZ,trailer);
+add(new THREE.BoxGeometry(lowerTrimWidth,.11,.11),trailerYellow,0,trailerLowerTrimY,trailerRearZ,trailer);
+
+// Painted side artwork panels.
+const trailerSideMat=new THREE.MeshBasicMaterial({map:makeTrailerSideTexture(),side:THREE.DoubleSide});
+const trailerSideX = halfTrailerWidth + .13;
+const trailerArtworkLength = Math.max(1.5,trailerLength-1.50);
+for(const x of[-trailerSideX,trailerSideX]){
+  const d=new THREE.Mesh(
+    new THREE.PlaneGeometry(trailerArtworkLength,Math.max(1.0,trailerWallHeight-.67)),
+    trailerSideMat
+  );
+  d.position.set(x,trailerWallY,trailerBodyCenterZ);
+  d.rotation.y=x<0?-Math.PI/2:Math.PI/2;
+  trailer.add(d);
+}
+
+// Long agricultural drawbar / tongue.
+// Two heavy arms form a proper A-frame from the trailer front to the hitch.
+function addBeamBetween(a,b,thick,mat,parent){
+  const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z;
+  const len=Math.hypot(dx,dy,dz);
+  const beam=add(new THREE.BoxGeometry(thick,thick,len),mat,0,0,0,parent);
+  beam.position.set((a.x+b.x)/2,(a.y+b.y)/2,(a.z+b.z)/2);
+  beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),new THREE.Vector3(dx,dy,dz).normalize());
+  return beam;
+}
+const drawbarFrontZ=trailerFrontZ;
+const drawbarHalfWidth = halfTrailerWidth*.667;
+for(const x of[-drawbarHalfWidth,drawbarHalfWidth]){
+  addBeamBetween(
+    new THREE.Vector3(x,trailerFloorY-.10,drawbarFrontZ),
+    new THREE.Vector3(0,trailerFloorY-.02,.15),
+    .26,trailerMetal,trailer
+  );
+}
+// Central spine plus front cross member and reinforced coupling end.
+addBeamBetween(
+  new THREE.Vector3(0,trailerFloorY-.04,drawbarFrontZ),
+  new THREE.Vector3(0,trailerFloorY+.02,.12),
+  .30,trailerMetal,trailer
+);
+add(new THREE.BoxGeometry(Math.max(2.2,trailerWidth-.90),.24,.30),trailerMetal,0,trailerFloorY-.10,trailerFrontZ,trailer);
+add(new THREE.BoxGeometry(.55,.24,.42),trailerMetal,0,trailerFloorY,.10,trailer);
+add(new THREE.SphereGeometry(.18,16,12),trailerMetal,0,trailerFloorY+.02,.12,trailer);
+
+// Chassis spine under the longer trailer body.
+add(new THREE.BoxGeometry(Math.min(2.4,Math.max(1.8,trailerWidth-.80)),.28,trailerLength-.55),trailerMetal,0,trailerFloorY-.25,trailerBodyCenterZ,trailer);
+
+// Single agricultural axle: only two wheels, one on each side.
+const trailerWheelPivots=[];
+function trailerWheel(x,z){
+  const g=new THREE.Group();g.position.set(x,trailerWheelCenterY,z);trailer.add(g);
+  const tire=add(new THREE.CylinderGeometry(trailerWheelRadius,trailerWheelRadius,.62,32),trailerRubber,0,0,0,g);tire.rotation.z=Math.PI/2;
+  for(let i=0;i<20;i++){
+    const a=(i/20)*Math.PI*2;
+    const lug=add(new THREE.BoxGeometry(.12,.12,.36),trailerRubber,0,Math.cos(a)*(trailerWheelRadius+.04),Math.sin(a)*(trailerWheelRadius+.04),g);
+    lug.rotation.x=a;lug.rotation.y=Math.PI/2;
+  }
+  const rim=add(new THREE.CylinderGeometry(trailerWheelRadius*.547,trailerWheelRadius*.547,.66,28),silver,0,0,0,g);rim.rotation.z=Math.PI/2;
+  const hub=add(new THREE.CylinderGeometry(trailerWheelRadius*.209,trailerWheelRadius*.209,.70,20),grey,0,0,0,g);hub.rotation.z=Math.PI/2;
+  trailerWheelPivots.push({g,w:tire,r:trailerWheelRadius});
+}
+
+// One axle toward the rear half of the trailer body.
+const trailerAxleZ=trailerRearZ+2.10;
+trailerWheel(-(halfTrailerWidth+.125),trailerAxleZ);
+trailerWheel(halfTrailerWidth+.125,trailerAxleZ);
+
+// Wheel guards above the single axle.
+// Kept above the tyre so the blue bar no longer intersects the upper tyre.
+const trailerMudguardX = halfTrailerWidth + .125;
+const trailerMudguardY = trailerWheelCenterY + trailerWheelRadius + .16;
+const trailerMudguardLength = trailerWheelRadius*2.05;
+
+add(
+  new THREE.BoxGeometry(.24,.18,trailerMudguardLength),
+  trailerBlueDark,
+  -trailerMudguardX,
+  trailerMudguardY,
+  trailerAxleZ,
+  trailer
+);
+add(
+  new THREE.BoxGeometry(.24,.18,trailerMudguardLength),
+  trailerBlueDark,
+  trailerMudguardX,
+  trailerMudguardY,
+  trailerAxleZ,
+  trailer
+);
+
+// Detachable support/jack stand (visible while parked detached).
+const trailerJack=new THREE.Group();
+trailer.add(trailerJack);
+add(new THREE.CylinderGeometry(.07,.09,1.05,12),trailerMetal,0,.46,.16,trailerJack);
+add(new THREE.BoxGeometry(.62,.12,.42),trailerMetal,0,.06,.16,trailerJack);
+trailerJack.position.set(0,0,trailerFrontZ+.25);
+trailerJack.visible=false;
+
+// Visible hitch/coupling pin.
+const trailerCoupler=add(new THREE.CylinderGeometry(.16,.16,.28,18),trailerMetal,0,trailerFloorY+.02,.12,trailer);
+trailerCoupler.rotation.z=Math.PI/2;
+
+let ploughAttached=true;
+let trailerAttached=true;
+let trailerArticulation=0;
+let trailerPrevTractorYaw=tractor.rotation.y;
+// ===== END ADDED ONLY: detachable agricultural trailer =====
+
+// Simple working furrow marks that follow the tractor.
+const trail=new THREE.Group();world.add(trail);
+let lastRear=null,furrowTick=0;
+function clearTrail(){while(trail.children.length)trail.remove(trail.children[0]);lastRear=null;furrowTick=0}
+function trailSegment(a,b,w){
+ const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);if(len<.03)return;
+ const q=new THREE.Mesh(new THREE.BoxGeometry(w,.026,len),M(0x4d321e,.99));
+ q.position.set((a.x+b.x)/2,.30,(a.z+b.z)/2);q.rotation.y=Math.atan2(dx,dz);q.receiveShadow=true;trail.add(q);
+ while(trail.children.length>650)trail.remove(trail.children[0]);
+}
+function updateTrail(dt){
+ const fc=fieldCell(),active=controls.plough && fc && Math.abs(speed)>.4 && !state.done;
+ if(!active){lastRear=null;furrowTick=0;return}
+ const front=new THREE.Vector3(0,0,1).applyQuaternion(tractor.quaternion).normalize();
+ const left=new THREE.Vector3(-front.z,0,front.x);
+ const rear=tractor.position.clone().addScaledVector(front,-3.2);
+ if(lastRear){
+  for(const off of[-1.5,-0.75,0,0.75,1.5]){
+   trailSegment(lastRear.clone().addScaledVector(left,off),rear.clone().addScaledVector(left,off),.09)
+  }
+ }
+ lastRear=rear;
+}
+
+// State / controls
+const state={started:false,paused:false,gear:0,cam:0,money:500,fuel:100,damage:0};
+const controls={w:false,a:false,s:false,d:false,up:false,down:false,left:false,right:false,plough:false,hand:false};
+let speed=0,steer=0,rpm=850,weather='clear',last=performance.now();
+
+// ===== ADDED: heavy agricultural diesel engine sound =====
+// Self-contained WebAudio sound inspired by the character of a real tractor diesel.
+// This does not replace any vehicle/game logic above or below.
+let engineAudio=null;
+
+function initEngineSound(){
+ if(engineAudio)return;
+ const AC=window.AudioContext||window.webkitAudioContext;
+ if(!AC)return;
+ const ctx=new AC();
+
+ const master=ctx.createGain();
+ const compressor=ctx.createDynamicsCompressor();
+ compressor.threshold.value=-20;
+ compressor.knee.value=18;
+ compressor.ratio.value=5;
+ compressor.attack.value=.008;
+ compressor.release.value=.16;
+ master.gain.value=.0001;
+ master.connect(compressor);
+ compressor.connect(ctx.destination);
+
+ // 3-cylinder, 4-stroke firing character: firing frequency = RPM / 40.
+ const fire=ctx.createOscillator();
+ fire.type='square';
+ const fireGain=ctx.createGain();fireGain.gain.value=.085;
+ const fireFilter=ctx.createBiquadFilter();fireFilter.type='lowpass';fireFilter.frequency.value=310;fireFilter.Q.value=.65;
+ fire.connect(fireFilter);fireFilter.connect(fireGain);fireGain.connect(master);
+
+ const body=ctx.createOscillator();
+ body.type='triangle';
+ const bodyGain=ctx.createGain();bodyGain.gain.value=.055;
+ const bodyFilter=ctx.createBiquadFilter();bodyFilter.type='lowpass';bodyFilter.frequency.value=170;bodyFilter.Q.value=.7;
+ body.connect(bodyFilter);bodyFilter.connect(bodyGain);bodyGain.connect(master);
+
+ const thump=ctx.createOscillator();
+ thump.type='sine';
+ const thumpGain=ctx.createGain();thumpGain.gain.value=.10;
+ thump.connect(thumpGain);thumpGain.connect(master);
+
+ // Mechanical harmonics: makes the engine less like a clean synthesizer.
+ const h2=ctx.createOscillator();h2.type='sawtooth';
+ const h2Gain=ctx.createGain();h2Gain.gain.value=.025;
+ h2.connect(h2Gain);h2Gain.connect(master);
+ const h4=ctx.createOscillator();h4.type='square';
+ const h4Gain=ctx.createGain();h4Gain.gain.value=.012;
+ h4.connect(h4Gain);h4Gain.connect(master);
+
+ // Exhaust / intake turbulence noise.
+ const noiseBuffer=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate);
+ const noiseData=noiseBuffer.getChannelData(0);
+ for(let i=0;i<noiseData.length;i++){
+  const white=Math.random()*2-1;
+  noiseData[i]=white*.72 + (i?noiseData[i-1]*.28:0);
+ }
+ const noise=ctx.createBufferSource();noise.buffer=noiseBuffer;noise.loop=true;
+ const exhaust=ctx.createBiquadFilter();exhaust.type='bandpass';exhaust.frequency.value=700;exhaust.Q.value=.55;
+ const exhaustGain=ctx.createGain();exhaustGain.gain.value=.015;
+ noise.connect(exhaust);exhaust.connect(exhaustGain);exhaustGain.connect(master);
+
+ const air=ctx.createBiquadFilter();air.type='highpass';air.frequency.value=420;
+ const airGain=ctx.createGain();airGain.gain.value=.004;
+ noise.connect(air);air.connect(airGain);airGain.connect(master);
+
+ // Small cyclic amplitude movement gives the engine an uneven diesel feel.
+ const lfo=ctx.createOscillator();lfo.type='sine';lfo.frequency.value=1.9;
+ const lfoGain=ctx.createGain();lfoGain.gain.value=.018;
+ lfo.connect(lfoGain);lfoGain.connect(fireGain.gain);
+
+ const now=ctx.currentTime;
+ fire.start(now);body.start(now);thump.start(now);h2.start(now);h4.start(now);noise.start(now);lfo.start(now);
+
+ engineAudio={ctx,master,fire,body,thump,h2,h4,exhaustGain,airGain,fireGain,bodyGain,thumpGain,h2Gain,h4Gain,lfo};
+}
+
+function updateEngineSound(){
+ if(!engineAudio)return;
+ const a=engineAudio;
+ const now=a.ctx.currentTime;
+ const rpmNow=Math.max(700,Math.min(2800,rpm||850));
+ const firingHz=Math.max(17.5,rpmNow/40);      // heavy 3-cylinder diesel pulse
+ const throttle=(controls.w||controls.up)&&state.gear!==0&&!controls.hand?1:0;
+ const load=Math.max(0,Math.min(1,(rpmNow-750)/1850));
+ const moving=Math.min(1,Math.abs(speed)/10);
+ const active=state.started&&!state.paused;
+
+ a.ctx.resume?.();
+ a.fire.frequency.setTargetAtTime(firingHz,now,.045);
+ a.body.frequency.setTargetAtTime(Math.max(12,firingHz*.50),now,.05);
+ a.thump.frequency.setTargetAtTime(Math.max(18,firingHz),now,.05);
+ a.h2.frequency.setTargetAtTime(firingHz*2,now,.045);
+ a.h4.frequency.setTargetAtTime(firingHz*4,now,.045);
+
+ // Bigger, rougher sound under load; quieter but still audible at idle.
+ const masterTarget=active ? (.075 + load*.055 + throttle*.025 + (controls.plough?.018:0)) : .0001;
+ const fireTarget=.058 + load*.055 + throttle*.018;
+ const bodyTarget=.045 + load*.040;
+ const thumpTarget=.055 + load*.060 + throttle*.025;
+ const h2Target=.012 + load*.022;
+ const h4Target=.006 + load*.014;
+ const exhaustTarget=.007 + load*.032 + throttle*.022 + (controls.plough?.018:0);
+ const airTarget=.002 + load*.010 + throttle*.016;
+
+ a.master.gain.setTargetAtTime(masterTarget,now,.06);
+ a.fireGain.gain.setTargetAtTime(fireTarget,now,.055);
+ a.bodyGain.gain.setTargetAtTime(bodyTarget,now,.06);
+ a.thumpGain.gain.setTargetAtTime(thumpTarget,now,.055);
+ a.h2Gain.gain.setTargetAtTime(h2Target,now,.06);
+ a.h4Gain.gain.setTargetAtTime(h4Target,now,.06);
+ a.exhaustGain.gain.setTargetAtTime(exhaustTarget,now,.07);
+ a.airGain.gain.setTargetAtTime(airTarget,now,.08);
+
+ // Slight throttle/load roughness.
+ a.fire.detune.setTargetAtTime((Math.sin(performance.now()*.006)*3)+(moving*2),now,.08);
+}
+// ===== END ADDED ENGINE SOUND =====
+
+function safeNumber(v,f,min,max){const n=Number(v);return Number.isFinite(n)?Math.min(max,Math.max(min,n)):f}
+function showToast(t){const e=document.getElementById('toast');e.textContent=t;e.classList.add('on');clearTimeout(showToast.t);showToast.t=setTimeout(()=>e.classList.remove('on'),1500)}
+function setGear(g){
+ const next=Math.max(-1,Math.min(5,Math.round(Number(g))));
+ if((next<=0)&&Math.abs(speed)>1.0){showToast('Stop to select R / N');return}
+ state.gear=next;updateGearUI()
+}
+function updateGearUI(){
+ const name=state.gear<0?'R':state.gear===0?'N':String(state.gear);
+ document.getElementById('gear').textContent=name;
+ document.querySelectorAll('.gearBtn').forEach(b=>b.classList.toggle('active',Number(b.dataset.gear)===state.gear));
+}
+function togglePlough(){controls.plough=!controls.plough;document.querySelector('#ploughBtn span').textContent=controls.plough?'DOWN':'UP';document.getElementById('ploughBtn').classList.toggle('active',controls.plough)}
+function toggleHand(){controls.hand=!controls.hand;document.querySelector('#handBtn span').textContent=controls.hand?'ON':'OFF';document.getElementById('handBtn').classList.toggle('active',controls.hand)}
+function cycleCamera(){state.cam=(state.cam+1)%3;const name=['CHASE','CABIN','ORBIT'][state.cam];document.querySelector('#cameraBtn span').textContent=name;showToast('Camera: '+name)}
+function service(){if(state.money<80){showToast('Need $80');return}state.money-=80;state.fuel=100;state.damage=0;showToast('Tractor serviced')}
+function pause(){state.paused=!state.paused;document.getElementById('pauseBtn').textContent=state.paused?'▶ Resume':'⏸ Pause';if(state.paused){Object.keys(controls).forEach(k=>controls[k]=false)}}
+function clearControls(){Object.keys(controls).forEach(k=>controls[k]=false);toggleVisuals()}
+function toggleVisuals(){
+ const pl=controls.plough, hb=controls.hand;
+ document.querySelector('#ploughBtn span').textContent=pl?'DOWN':'UP';
+ document.querySelector('#handBtn span').textContent=hb?'ON':'OFF';
+ document.getElementById('ploughBtn').classList.toggle('active',pl);
+ document.getElementById('handBtn').classList.toggle('active',hb);
+}
+
+// ===== ADDED ONLY: attach/detach control logic =====
+function setPloughAttached(attached){
+ attached=!!attached;
+ if(attached===ploughAttached)return;
+ controls.plough=false;
+ if(attached){
+  tractor.attach(plough);
+  plough.position.set(0,.18,-3.05);
+  plough.rotation.set(0,0,0);
+ }else{
+  world.attach(plough);
+ }
+ ploughAttached=attached;
+ updateAttachmentUI();
+}
+
+function setTrailerAttached(attached){
+ attached=!!attached;
+ if(attached===trailerAttached)return;
+ if(attached){
+  trailerHitch.attach(trailer);
+  trailer.position.set(0,0,0);
+  trailer.rotation.set(0,0,0);
+  trailerArticulation=0;
+  trailerHitch.rotation.y=0;
+  trailerJack.visible=false;
+  trailerPrevTractorYaw=tractor.rotation.y;
+ }else{
+  world.attach(trailer);
+  trailer.rotation.y=tractor.rotation.y + trailerHitch.rotation.y;
+  trailerJack.visible=true;
+ }
+ trailerAttached=attached;
+ updateAttachmentUI();
+}
+
+function togglePloughAttachment(){setPloughAttached(!ploughAttached);showToast(ploughAttached?'Plough attached':'Plough detached')}
+function toggleTrailerAttachment(){setTrailerAttached(!trailerAttached);showToast(trailerAttached?'Trailer attached':'Trailer detached')}
+
+function updateAttachmentUI(){
+ if(ploughAttachButton){
+  const s=ploughAttachButton.querySelector('span');if(s)s.textContent=ploughAttached?'ATTACHED':'DETACHED';
+  ploughAttachButton.classList.toggle('active',ploughAttached);
+ }
+ if(trailerAttachButton){
+  const s=trailerAttachButton.querySelector('span');if(s)s.textContent=trailerAttached?'ATTACHED':'DETACHED';
+  trailerAttachButton.classList.toggle('active',trailerAttached);
+ }
+}
+
+const ploughAttachButton=document.createElement('button');
+ploughAttachButton.type='button';
+ploughAttachButton.className='btn';
+ploughAttachButton.id='ploughAttachBtn';
+ploughAttachButton.innerHTML='🔗 Plough: <span>ATTACHED</span>';
+ploughAttachButton.onclick=togglePloughAttachment;
+document.getElementById('right')?.appendChild(ploughAttachButton);
+
+const trailerAttachButton=document.createElement('button');
+trailerAttachButton.type='button';
+trailerAttachButton.className='btn';
+trailerAttachButton.id='trailerAttachBtn';
+trailerAttachButton.innerHTML='🛒 Trailer: <span>ATTACHED</span>';
+trailerAttachButton.onclick=toggleTrailerAttachment;
+document.getElementById('right')?.appendChild(trailerAttachButton);
+
+updateAttachmentUI();
+
+// Do not allow ploughing while the plough is physically detached.
+window.addEventListener('keydown',e=>{
+ if(e.code==='Space' && !ploughAttached){
+  e.preventDefault();e.stopImmediatePropagation();showToast('Attach plough first');
+ }
+},true);
+
+document.getElementById('ploughBtn')?.addEventListener('click',e=>{
+ if(!ploughAttached){e.preventDefault();e.stopImmediatePropagation();showToast('Attach plough first');}
+},true);
+
+// Z = plough attach/detach, V = trailer attach/detach.
+window.addEventListener('keydown',e=>{
+ if(e.repeat)return;
+ if(e.code==='KeyZ'){togglePloughAttachment();e.preventDefault();}
+ if(e.code==='KeyV'){toggleTrailerAttachment();e.preventDefault();}
+},{passive:false});
+
+// Real articulated trailer kinematics.
+// The trailer follows the tractor through the hitch and develops a natural
+// angle during turns, limited to +/- 35 degrees.
+function updateTrailerArticulation(dt){
+ if(!trailerAttached){
+  trailerPrevTractorYaw=tractor.rotation.y;
+  return;
+ }
+
+ const yawDelta=Math.atan2(
+   Math.sin(tractor.rotation.y-trailerPrevTractorYaw),
+   Math.cos(tractor.rotation.y-trailerPrevTractorYaw)
+ );
+ const yawRate=yawDelta/Math.max(dt,.001);
+ trailerPrevTractorYaw=tractor.rotation.y;
+
+ const trailerEffectiveLength=trailerLength+1.70;
+ const recovery=(Math.abs(speed)/trailerEffectiveLength)*Math.sin(trailerArticulation);
+ const articulationRate=-yawRate-recovery;
+
+ trailerArticulation+=articulationRate*dt;
+ trailerArticulation=THREE.MathUtils.clamp(
+   trailerArticulation,
+   THREE.MathUtils.degToRad(-45),
+   THREE.MathUtils.degToRad(45)
+ );
+
+ trailerHitch.rotation.y=damp(
+   trailerHitch.rotation.y,
+   trailerArticulation,
+   8.0,
+   dt
+ );
+}
+
+// Keep the two trailer wheels rotating.
+function trailerWheelVisualLoop(){
+ if(trailerAttached && typeof speed!=='undefined'){
+  for(const o of trailerWheelPivots)o.w.rotation.x+=speed*.016/(o.r||1);
+ }
+ requestAnimationFrame(trailerWheelVisualLoop);
+}
+trailerWheelVisualLoop();
+// ===== END ADDED ONLY: attach/detach control logic =====
+
+// Keyboard: exactly one down/up listener.
+window.addEventListener('keydown',e=>{
+ if(!state.started){
+  if(e.code==='Enter'){window.startFarmRush();e.preventDefault()}
+  return;
+ }
+ if(state.paused){if(e.code==='Escape'){pause();e.preventDefault()}return}
+ switch(e.code){
+  case 'KeyW':controls.w=true;break;case 'KeyA':controls.a=true;break;case 'KeyS':controls.s=true;break;case 'KeyD':controls.d=true;break;
+  case 'ArrowUp':controls.up=true;break;case 'ArrowDown':controls.down=true;break;case 'ArrowLeft':controls.left=true;break;case 'ArrowRight':controls.right=true;break;
+  case 'Space':controls.plough=true;e.preventDefault();break;
+  case 'ShiftLeft':case 'ShiftRight':controls.hand=true;e.preventDefault();break;
+  case 'KeyQ':if(!e.repeat)setGear(state.gear-1);break;
+  case 'KeyE':if(!e.repeat)setGear(state.gear+1);break;
+  case 'KeyR':if(!e.repeat)setGear(-1);break;
+  case 'KeyN':if(!e.repeat)setGear(0);break;
+  case 'Digit1':if(!e.repeat)setGear(1);break;case 'Digit2':if(!e.repeat)setGear(2);break;case 'Digit3':if(!e.repeat)setGear(3);break;case 'Digit4':if(!e.repeat)setGear(4);break;case 'Digit5':if(!e.repeat)setGear(5);break;
+  case 'KeyX':case 'KeyC':if(!e.repeat)cycleCamera();break;
+  case 'KeyT':if(!e.repeat)service();break;
+  case 'Escape':if(!e.repeat)pause();break;
+ }
+ toggleVisuals();
+},{passive:false});
+window.addEventListener('keyup',e=>{
+ switch(e.code){
+  case 'KeyW':controls.w=false;break;case 'KeyA':controls.a=false;break;case 'KeyS':controls.s=false;break;case 'KeyD':controls.d=false;break;
+  case 'ArrowUp':controls.up=false;break;case 'ArrowDown':controls.down=false;break;case 'ArrowLeft':controls.left=false;break;case 'ArrowRight':controls.right=false;break;
+  case 'Space':controls.plough=false;break;case 'ShiftLeft':case 'ShiftRight':controls.hand=false;break;
+ }
+ toggleVisuals();
+},{passive:false});
+
+document.querySelectorAll('.gearBtn').forEach(b=>b.onclick=()=>setGear(Number(b.dataset.gear)));
+document.getElementById('ploughBtn').onclick=togglePlough;
+document.getElementById('handBtn').onclick=toggleHand;
+document.getElementById('cameraBtn').onclick=cycleCamera;
+document.getElementById('serviceBtn').onclick=service;
+document.getElementById('pauseBtn').onclick=pause;
+
+// Touch: maps to same controls.
+function bindTouch(id,key){
+ const el=document.getElementById(id);if(!el)return;
+ const down=e=>{e.preventDefault();controls[key]=true;el.setPointerCapture?.(e.pointerId);};
+ const up=e=>{e.preventDefault();controls[key]=false;};
+ el.addEventListener('pointerdown',down,{passive:false});
+ el.addEventListener('pointerup',up,{passive:false});
+ el.addEventListener('pointercancel',up,{passive:false});
+ el.addEventListener('lostpointercapture',up,{passive:false});
+}
+bindTouch('tl','left');bindTouch('tr','right');bindTouch('tf','up');bindTouch('tb','down');
+
+// Added: start/resume audio only from real user interaction (browser autoplay policy).
+document.addEventListener('pointerdown',()=>initEngineSound(),{passive:true});
+window.addEventListener('keydown',()=>initEngineSound(),{passive:true});
+
+function engineSoundLoop(){
+ updateEngineSound();
+ requestAnimationFrame(engineSoundLoop);
+}
+engineSoundLoop();
+
+
+// Core vehicle references must exist before gameplay begins.
+if(!FL||!FR||!RL||!RR){
+ const box=document.getElementById('diagnostic');box.style.display='grid';
+ document.getElementById('diagnosticText').textContent='Vehicle wheel initialization failed.';
+ throw new Error('Vehicle wheel references missing');
+}
+window.startFarmRush=function(){
+ if(state.started)return;
+ document.getElementById('diagnostic').style.display='none';
+ state.started=true;state.paused=false;state.gear=1;speed=0;steer=0;rpm=850;
+ document.getElementById('start').style.display='none';
+ updateGearUI();toggleVisuals();showToast('W forward • A left • D right');
+};
+
+function drive(dt){
+ const f=controls.w||controls.up,b=controls.s||controls.down,left=controls.a||controls.left,right=controls.d||controls.right;
+ const gear=state.gear;
+ const max=[0,5.0,7.7,10.2,13.4,16.5][Math.max(1,Math.min(5,gear))]||0;
+ const target=gear<0?-4.0:gear===0?0:max;
+ const throttle=f&&gear!==0&&!controls.hand?1:0;
+
+ let desired=target*throttle;
+ const braking=b||controls.hand;
+ if(braking)desired=0;
+ speed=damp(speed,desired,gear<0?3.4:3.7,dt);
+ if(!f&&!b&&!controls.hand)speed=damp(speed,0,1.0,dt);
+
+ const traction=Math.max(.55,Math.min(1,weather==='rain'?.72:1));
+const steerTarget=left?1:right?-1:0;
+ const speedRatio=Math.min(1,Math.abs(speed)/10);
+ steer=damp(steer,steerTarget,5.0-speedRatio*1.3,dt);
+ const steerAngle=steer*.56*(1-.16*speedRatio);
+ const yawRate=Math.abs(speed)>.03?(speed/3.3)*Math.tan(steerAngle)*.84*traction:0;
+ tractor.rotation.y+=yawRate*dt;
+
+ const front=new THREE.Vector3(0,0,1).applyQuaternion(tractor.quaternion).normalize();
+ tractor.position.addScaledVector(front,speed*dt);
+
+ // Never move chassis below ground.
+ tractor.position.y=0;
+ tractor.rotation.x=0;tractor.rotation.z=0;
+
+ FL.rotation.y=steerAngle;FR.rotation.y=steerAngle;
+ steerWheel.rotation.z=damp(steerWheel.rotation.z,-steerAngle,7,dt);
+ for(const o of wheelPivots)o.w.rotation.x+=speed*dt/(o.w.userData.radius||1);
+
+ const load=(controls.plough?1.2:1);
+ const targetRpm=gear===0?850:850+Math.abs(speed)*78*load+throttle*1250*load;
+ rpm=damp(rpm,Math.max(750,Math.min(2600,targetRpm)),5,dt);
+
+ state.fuel=Math.max(0,state.fuel-(.0012+Math.abs(speed)*.0007+throttle*.002+(controls.plough?.003:0))*dt*60);
+
+ // Mild collision response without changing Y position.
+ for(const o of hazards){
+  const rr=(o.userData?.rad||1.5)+1.75,dx=tractor.position.x-o.position.x,dz=tractor.position.z-o.position.z;
+  if(dx*dx+dz*dz<rr*rr){speed*=.55;state.damage=Math.min(100,state.damage+.2*dt)}
+ }
+}
+
+const hazards=[];
+function hazard(x,z,rad=1.4){
+ const q=add(new THREE.DodecahedronGeometry(rad*.8,1),M(0x73716a),x,rad*.7,z);q.userData.rad=rad;hazards.push(q)
+}
+hazard(27,56,1.2);hazard(-34,82,1.3);hazard(40,71,1.0);
+
+function updateCamera(dt){
+ let localPos,localLook;
+ if(state.cam===0){localPos=new THREE.Vector3(0,6.8,-12.5);localLook=new THREE.Vector3(0,1.4,2.0)}
+ else if(state.cam===1){localPos=new THREE.Vector3(0,3.15,.15);localLook=new THREE.Vector3(0,2.8,24)}
+ else{localPos=new THREE.Vector3(-10,11,-16);localLook=new THREE.Vector3(0,.8,1)}
+ camera.position.lerp(tractor.localToWorld(localPos),1-Math.pow(.00004,dt));
+ camera.lookAt(tractor.localToWorld(localLook));
+}
+
+function hud(){
+ const p=workedPct()*100;
+ document.getElementById('speed').textContent=Math.round(Math.abs(speed)*3.25)+' km/h';
+ document.getElementById('rpm').textContent=Math.round(rpm);
+ document.getElementById('fuel').textContent=Math.round(state.fuel)+'%';
+ document.getElementById('damage').textContent=Math.round(state.damage)+'%';
+ document.getElementById('worked').textContent=Math.round(p)+'%';
+ document.getElementById('progress').style.width=p+'%';
+ document.getElementById('pos').textContent=Math.round(tractor.position.x)+','+Math.round(tractor.position.z);
+ document.getElementById('steering').textContent=Math.abs(steer)<.05?'CENTER':steer<0?'LEFT':'RIGHT';
+ document.getElementById('ploughState').textContent=controls.plough?'DOWN':'UP';
+ document.getElementById('traction').textContent=(weather==='rain'?'72':'100')+'%';
+ document.getElementById('driveState').textContent=controls.hand?'HANDBRAKE':controls.plough?'PLOUGH':Math.abs(speed)<.2?'IDLE':speed<0?'REVERSE':'DRIVE';
+ const load=Math.min(100,Math.max(0,((rpm-750)/1850)*100));document.getElementById('load').style.width=load+'%';document.getElementById('loadText').textContent=Math.round(load)+'%';
+ document.getElementById('camera').textContent=['CHASE','CABIN','ORBIT'][state.cam];
+ updateGearUI();
+}
+
+// Deterministic loop.
+function loop(now){
+ requestAnimationFrame(loop);
+ const dt=Math.min(.033,Math.max(.001,(now-last)/1000));last=now;
+ try{
+  if(state.started&&!state.paused){
+   drive(dt);
+   updateTrailerArticulation(dt);
+   ploughNow();
+   updateTrail(dt);
+   updateCamera(dt);
+  }
+  hud();
+  renderer.render(scene,camera);
+ }catch(err){
+  state.paused=true;
+  const box=document.getElementById('diagnostic');box.style.display='grid';
+  document.getElementById('diagnosticText').textContent=err.stack||String(err);
+  console.error(err);
+ }
+}
+loop(performance.now());
+
+function ploughNow(){
+ if(!controls.plough||state.paused)return;
+ const fc=fieldCell();if(!fc||Math.abs(speed)<.4)return;
+ const rad=0;
+ for(let r=Math.max(0,fc.r-rad);r<=Math.min(FIELD.rows-1,fc.r+rad);r++)
+  for(let c=Math.max(0,fc.c-rad);c<=Math.min(FIELD.cols-1,fc.c+rad);c++)
+   if(!cells[r][c]){
+    cells[r][c]=true;
+    soilG.children[r*FIELD.cols+c].material.color.setHex(0x56381f);
+    ploughedTiles[r][c].visible=true;
+   }
+}
+
+function damp(a,b,l,dt){return THREE.MathUtils.lerp(a,b,1-Math.exp(-l*dt))}
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)})
+})();
+</script>
+</body>
+</html>
