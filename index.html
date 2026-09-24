@@ -1846,6 +1846,12 @@ window.startFarmRush=function(){
  updateGearUI();toggleVisuals();showToast('W forward • A left • D right');
 };
 
+const startButton = document.getElementById('startButton');
+
+startButton.addEventListener('click', () => {
+  window.startFarmRush();
+});
+
 function drive(dt){
  const f=controls.w||controls.up,b=controls.s||controls.down,left=controls.a||controls.left,right=controls.d||controls.right;
  const gear=state.gear;
