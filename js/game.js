@@ -1183,7 +1183,7 @@ const TRAILER_PHYSICS={
  rollingResistance:1.55,
  restitution:.08,
  maxSpeed:8.5,
- boundary:116,
+ boundary:356,
  halfWidth:trailerWidth/2+.18,
  halfLength:trailerLength/2+.38,
  impactDamageScale:1.85
@@ -1206,7 +1206,7 @@ const PLOUGH_PHYSICS={
  maxPushSpeed:.42,
  maxAngularSpeed:.11,
  impactDamageScale:1.55,
- boundary:116,
+ boundary:356,
  halfWidth:2.10,
  bodyHalfLength:.26
 };
@@ -2057,8 +2057,8 @@ function drive(dt){
  // Hard rigid chassis constraints: fixed ride height, no artificial body roll,
  // and a bounded play area so the vehicle cannot fall through the world.
  tractor.position.y=RIGID.groundY;
- tractor.position.x=THREE.MathUtils.clamp(tractor.position.x,-112,112);
- tractor.position.z=THREE.MathUtils.clamp(tractor.position.z,-112,112);
+ tractor.position.x=THREE.MathUtils.clamp(tractor.position.x,-348,348);
+ tractor.position.z=THREE.MathUtils.clamp(tractor.position.z,-348,348);
  tractor.rotation.x=0;
  tractor.rotation.z=0;
 
