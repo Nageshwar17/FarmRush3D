@@ -1,0 +1,150 @@
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#10170f;font-family:Arial,Segoe UI,sans-serif;color:#fff}
+#game{position:fixed;inset:0}
+#game canvas{display:block;width:100%;height:100%}
+.panel{background:rgba(12,18,13,.78);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(8px);border-radius:14px;box-shadow:0 12px 35px rgba(0,0,0,.22)}
+#hud{position:fixed;inset:0;pointer-events:none;z-index:10}
+#top{position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;gap:10px}
+#stats{display:flex;gap:8px;padding:9px;flex-wrap:wrap}
+.stat{min-width:68px}.stat small{display:block;font-size:9px;color:#b9c2b8;text-transform:uppercase;letter-spacing:.1em}.stat b{font-size:16px}
+#contract{width:390px;padding:11px}
+#contract b{font-size:14px}.sub{font-size:11px;color:#c4cbc2;line-height:1.35}
+#progressWrap{height:8px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden;margin-top:7px}
+#progress{height:100%;width:0;background:#e8c64e}
+#right{position:absolute;right:12px;bottom:12px;display:flex;align-items:flex-end;gap:7px;flex-direction:column}
+.btn{pointer-events:auto;border:1px solid rgba(255,255,255,.14);background:rgba(12,18,13,.83);color:#fff;padding:8px 11px;border-radius:11px;font-weight:800;cursor:pointer}
+.btn.active{background:#e8c64e;color:#17200e;border-color:#e8c64e}
+.gear{min-width:30px;padding:6px 8px}
+#gearPanel{display:flex;gap:4px;align-items:center;flex-wrap:wrap;padding:7px 8px}
+#drivePanel{position:absolute;left:12px;bottom:12px;padding:8px 10px;font-size:11px;color:#c7cec4}
+#drivePanel b{color:#fff}
+#machine{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);width:min(390px,58vw);padding:8px 11px}
+.row{display:flex;justify-content:space-between;gap:10px;font-size:10px;color:#bfc8bd}
+#bar{height:7px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:4px}
+#load{height:100%;width:0;background:#dda94d}
+#toast{position:absolute;top:15%;left:50%;transform:translateX(-50%);padding:9px 14px;border-radius:999px;background:rgba(13,19,12,.95);border:1px solid rgba(255,255,255,.12);font-weight:900;opacity:0;transition:.18s}
+#toast.on{opacity:1}
+#start{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:radial-gradient(circle at 50% 38%,rgba(66,102,49,.86),rgba(2,5,3,.98))}
+#startCard{width:min(680px,92vw);padding:30px;text-align:center}
+#startCard h1{margin:0;font-size:clamp(42px,8vw,78px);line-height:.87;letter-spacing:-.06em}
+#startCard p{color:#c7cec6;line-height:1.55}
+#startButton{margin-top:10px;background:#e8c64e;color:#16200f;border:0;border-radius:14px;padding:13px 20px;font-weight:950;cursor:pointer}
+#diagnostic{display:none;position:fixed;inset:0;z-index:99;place-items:center;background:#050806;padding:25px}
+#diagnostic .panel{max-width:760px;padding:25px}
+#touch{display:none;position:fixed;inset:0;z-index:20;pointer-events:none}
+.touchBtn{position:absolute;width:65px;height:65px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);font-weight:1000;pointer-events:auto;user-select:none;touch-action:none}
+#tl{left:16px;bottom:80px}#tr{left:91px;bottom:80px}#tf{right:91px;bottom:80px}#tb{right:16px;bottom:80px}
+@media(max-width:850px){#touch{display:block}#drivePanel{display:none}#machine{width:76vw}.stat{min-width:65px}.stat b{font-size:14px}#contract{width:54vw}}
+@media(max-width:600px){#top{flex-direction:column}#stats{width:max-content;max-width:100%}#contract{width:100%}.stat{min-width:62px}#machine{left:50%;bottom:10px}}
+
+/* ===== MOBILE UI ONLY: two-hand touch layout ===== */
+@media (max-width:850px){
+  /* Keep the game area open; controls sit in dedicated edge zones. */
+  #touch{display:block;z-index:25}
+  .touchBtn{
+    width:58px;
+    height:58px;
+    border-radius:50%;
+    font-size:25px;
+    background:rgba(18,25,19,.58);
+    border:1px solid rgba(255,255,255,.24);
+    box-shadow:0 5px 16px rgba(0,0,0,.28);
+    backdrop-filter:blur(4px);
+  }
+
+  /* LEFT THUMB: steering only. */
+  #tl{left:20px;right:auto;bottom:16px}
+  #tr{left:88px;right:auto;bottom:16px}
+
+  /* RIGHT THUMB: forward / reverse only. */
+  #tf{right:20px;left:auto;bottom:84px}
+  #tb{right:20px;left:auto;bottom:16px}
+
+  /* Compact action dock above the right-hand driving buttons. */
+  #right{
+    right:8px;
+    bottom:148px;
+    top:auto;
+    width:184px;
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:5px;
+    flex-direction:unset;
+    align-items:stretch;
+  }
+
+  #gearPanel{
+    grid-column:1/-1;
+    width:100%;
+    display:flex;
+    gap:3px;
+    padding:5px;
+    justify-content:center;
+  }
+  #gearPanel .sub{font-size:8px;margin-right:1px}
+  .gear{min-width:25px;width:25px;height:27px;padding:2px 0;font-size:12px}
+
+  /* Icon-only controls on mobile. Desktop labels remain unchanged. */
+  #right>.btn:not(.gearBtn){
+    min-width:0;
+    width:100%;
+    height:40px;
+    min-height:40px;
+    padding:0;
+    border-radius:10px;
+    font-size:0;
+    line-height:1;
+  }
+  #ploughBtn::before{content:'🌾';font-size:19px}
+  #handBtn::before{content:'🛑';font-size:18px}
+  #cameraBtn::before{content:'📷';font-size:18px}
+  #serviceBtn::before{content:'🔧';font-size:18px}
+  #pauseBtn::before{content:'⏸';font-size:18px}
+  #hornBtn::before{content:'📯';font-size:18px}
+  #right>.btn>span{display:none}
+
+  /* Keep the status panel narrow enough not to collide with either thumb. */
+  #machine{
+    width:min(390px,46vw);
+    left:50%;
+    bottom:8px;
+    padding:6px 8px;
+  }
+  #machine .row{font-size:8px;gap:6px}
+  #bar{height:5px;margin-top:3px}
+
+  /* Slightly compact top HUD. */
+  #stats{gap:5px;padding:7px}
+  .stat{min-width:55px}
+  .stat small{font-size:8px}
+  .stat b{font-size:13px}
+  #contract{padding:8px}
+  #contract b{font-size:12px}
+  #contract .sub{font-size:9px}
+  #progressWrap{height:6px}
+}
+
+@media (max-width:850px) and (orientation:portrait){
+  /* Portrait: keep both thumb zones at the bottom corners. */
+  #right{right:8px;bottom:150px;width:170px}
+  #machine{width:calc(100vw - 150px);bottom:10px}
+  #tf{right:18px;bottom:82px}
+  #tb{right:18px;bottom:14px}
+  #tl{left:18px;bottom:14px}
+  #tr{left:86px;bottom:14px}
+}
+
+@media (max-width:600px){
+  #top{flex-direction:column;gap:5px}
+  #stats{width:max-content;max-width:calc(100vw - 16px)}
+  #contract{width:calc(100vw - 16px)}
+  #right{width:170px}
+}
+/* ===== ADDED ONLY: plough/trailer attachment controls ===== */
+#ploughAttachBtn::before{content:'🔗';font-size:18px}
+#trailerAttachBtn::before{content:'🛒';font-size:18px}
+@media(max-width:850px){
+  #ploughAttachBtn::before{content:'🔗';font-size:18px}
+  #trailerAttachBtn::before{content:'🛒';font-size:18px}
+}
+/* ===== END ADDED ONLY: plough/trailer attachment controls ===== */
